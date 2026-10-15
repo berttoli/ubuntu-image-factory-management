@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "factory", "ubuntu", "architectures", "build", "security"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "factory": {
+      "type": "object",
+      "required": ["name", "default_release", "channels"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+        "default_release": {"type": "string", "pattern": "^\\d{2}\\.04$"},
+        "channels": {"type": "array", "items": {"enum": ["development", "candidate", "stable"]}, "minItems": 1}
+      }
+    },
+    "ubuntu": {
+      "type": "object",
+      "required": ["supported_releases"],
+      "properties": {
+        "supported_releases": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["codename", "point_release", "architectures", "server_iso_base", "server_iso_base_arm64", "server_iso_checksum_url", "server_iso_checksum_url_arm64"],
+            "properties": {
+              "codename": {"type": "string"},
+              "point_release": {"type": "string"},
+              "architectures": {"type": "array", "items": {"enum": ["amd64", "arm64"]}},
+              "server_iso_base": {"type": "string", "format": "uri"},
+              "server_iso_base_arm64": {"type": "string", "format": "uri"},
+              "server_iso_checksum_url": {"type": "string", "format": "uri"},
+              "server_iso_checksum_url_arm64": {"type": "string", "format": "uri"}
+            }
+          }
+        }
+      }
+    },
+    "architectures": {"type": "object", "minProperties": 1},
+    "build": {"type": "object", "required": ["minimal", "security_updates", "unattended_upgrades"]},
+    "security": {"type": "object", "required": ["critical_vulnerability_threshold", "high_vulnerability_threshold"]}
+  }
+}

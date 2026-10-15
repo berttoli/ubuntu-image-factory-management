@@ -1,0 +1,23 @@
+---
+- name: Install host security baseline packages
+  ansible.builtin.apt:
+    name:
+      - apparmor
+      - auditd
+      - openssh-server
+      - ufw
+      - unattended-upgrades
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Apply shared hardening script
+  ansible.builtin.script: "{{ playbook_dir }}/../scripts/apply-hardening.sh"
+  register: hardening_result
+  changed_when: hardening_result.rc == 0
+
+- name: Ensure machine identity is regenerated on first boot
+  ansible.builtin.file:
+    path: /etc/machine-id
+    state: absent
+

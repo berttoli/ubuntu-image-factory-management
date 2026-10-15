@@ -1,0 +1,48 @@
+name: build-baremetal
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        required: true
+        default: "26.04"
+        type: choice
+        options: ["26.04", "24.04"]
+      architecture:
+        required: true
+        default: amd64
+        type: choice
+        options: [amd64, arm64]
+      profile:
+        required: true
+        default: hardened
+        type: choice
+        options: [minimal, hardened, encrypted, custom-hardware]
+  schedule:
+    - cron: "37 1 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE: ${{ inputs.release || '26.04' }}
+      ARCH: ${{ inputs.architecture || 'amd64' }}
+      PROFILE: ${{ inputs.profile || 'hardened' }}
+      AUTOINSTALL_PASSWORD_HASH: ${{ secrets.AUTOINSTALL_PASSWORD_HASH }}
+      AUTOINSTALL_SSH_PUBLIC_KEY: ${{ secrets.AUTOINSTALL_SSH_PUBLIC_KEY }}
+      AUTOINSTALL_TARGET_DISK_SERIAL: CI-AUTOINSTALL-DISK
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ISO tooling
+        run: sudo apt-get update && sudo apt-get install -y xorriso
+      - name: Build installer ISO
+        run: make build-iso
+      - name: Upload installer ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: baremetal-${{ env.RELEASE }}-${{ env.ARCH }}-${{ env.PROFILE }}
+          path: build/iso/*.iso*
+          retention-days: 14

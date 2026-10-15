@@ -1,0 +1,53 @@
+name: build-vm
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        required: true
+        default: "26.04"
+        type: choice
+        options: ["26.04", "24.04"]
+      architecture:
+        required: true
+        default: amd64
+        type: choice
+        options: [amd64, arm64]
+  schedule:
+    - cron: "23 1 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE: ${{ inputs.release || '26.04' }}
+      ARCH: ${{ inputs.architecture || 'amd64' }}
+      AUTOINSTALL_PASSWORD_HASH: ${{ secrets.AUTOINSTALL_PASSWORD_HASH }}
+      AUTOINSTALL_SSH_PUBLIC_KEY: ${{ secrets.AUTOINSTALL_SSH_PUBLIC_KEY }}
+      AUTOINSTALL_SSH_PRIVATE_KEY: ${{ secrets.AUTOINSTALL_SSH_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@v3
+        with:
+          version: latest
+      - name: Materialize ephemeral SSH key file
+        run: |
+          umask 077
+          printf '%s\n' "$AUTOINSTALL_SSH_PRIVATE_KEY" > "$RUNNER_TEMP/factory_id_ed25519"
+          echo "AUTOINSTALL_SSH_PRIVATE_KEY_FILE=$RUNNER_TEMP/factory_id_ed25519" >> "$GITHUB_ENV"
+      - name: Install QEMU and ISO dependencies
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-efi-aarch64 qemu-utils xorriso p7zip-full
+      - name: Build QCOW2
+        run: make build-vm FORMAT=qcow2
+      - name: Build RAW
+        run: make build-vm FORMAT=raw
+      - name: Boot test
+        run: make test-vm IMAGE="build/vm/ubuntu-${RELEASE}-${ARCH}-qcow2.qcow2"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vm-${{ env.RELEASE }}-${{ env.ARCH }}
+          path: build/vm
+          retention-days: 14

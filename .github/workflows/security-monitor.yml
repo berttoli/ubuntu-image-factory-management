@@ -1,0 +1,48 @@
+name: security-monitor
+
+on:
+  schedule:
+    - cron: "43 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  ubuntu-security-feed:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Ubuntu OVAL feeds
+        run: |
+          mkdir -p artifacts/security-monitor
+          curl --fail --location --silent --show-error https://security-metadata.canonical.com/oval/com.ubuntu.noble.cve.oval.xml.bz2 -o artifacts/security-monitor/noble.oval.xml.bz2
+          curl --fail --location --silent --show-error https://security-metadata.canonical.com/oval/com.ubuntu.resolute.cve.oval.xml.bz2 -o artifacts/security-monitor/resolute.oval.xml.bz2
+      - name: Record feed checksum
+        run: sha256sum artifacts/security-monitor/* > artifacts/security-monitor/SHA256SUMS
+      - name: Restore previous feed state
+        id: feed-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: artifacts/security-monitor
+          key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
+      - name: Trigger rebuild and create a tracking issue when the feed changes
+        if: steps.feed-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list --state open --json title --jq '.[].title' | grep -qxF 'Ubuntu security feed changed' || \
+            gh issue create --title 'Ubuntu security feed changed' --body 'The authoritative Ubuntu OVAL feed changed. Review the vulnerability gate and promote rebuilt artifacts after validation.'
+          gh workflow run build-vm.yml --ref "${GITHUB_REF_NAME}" -f release=26.04 -f architecture=amd64
+      - name: Save current feed state
+        if: steps.feed-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/security-monitor
+          key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-security-feed-${{ github.run_id }}
+          path: artifacts/security-monitor
+          retention-days: 14

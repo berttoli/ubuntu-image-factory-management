@@ -1,0 +1,46 @@
+schema_version: 1
+factory:
+  name: ubuntu-image-factory
+  default_release: "26.04"
+  channels: [development, candidate, stable]
+ubuntu:
+  archive_base: https://archive.ubuntu.com/ubuntu
+  security_archive_base: https://security.ubuntu.com/ubuntu
+  supported_releases:
+    "26.04":
+      codename: resolute
+      point_release: "26.04.1"
+      standard_support_until: "2031-05-31"
+      architectures: [amd64, arm64]
+      server_iso_base: https://releases.ubuntu.com/26.04.1
+      server_iso_base_arm64: https://cdimage.ubuntu.com/ubuntu/releases/26.04/release
+      server_iso_checksum_url: https://releases.ubuntu.com/26.04.1/SHA256SUMS
+      server_iso_checksum_url_arm64: https://cdimage.ubuntu.com/ubuntu/releases/26.04/release/SHA256SUMS
+    "24.04":
+      codename: noble
+      point_release: "24.04.5"
+      standard_support_until: "2029-06-01"
+      architectures: [amd64, arm64]
+      server_iso_base: https://releases.ubuntu.com/24.04.5
+      server_iso_base_arm64: https://cdimage.ubuntu.com/ubuntu/releases/24.04/release
+      server_iso_checksum_url: https://releases.ubuntu.com/24.04.5/SHA256SUMS
+      server_iso_checksum_url_arm64: https://cdimage.ubuntu.com/ubuntu/releases/24.04/release/SHA256SUMS
+architectures:
+  amd64:
+    qemu_machine: q35
+    container_platform: linux/amd64
+  arm64:
+    qemu_machine: virt
+    container_platform: linux/arm64
+build:
+  minimal: true
+  security_updates: true
+  unattended_upgrades: true
+  default_disk_size: 12G
+  vm_memory: 2048M
+  vm_cpus: 2
+security:
+  critical_vulnerability_threshold: 0
+  high_vulnerability_threshold: 0
+  high_vulnerability_exception_days: 14
+  required_artifacts: [checksum, sbom, provenance, signature, build_metadata, security_report]

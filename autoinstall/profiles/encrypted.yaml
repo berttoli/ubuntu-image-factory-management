@@ -1,0 +1,6 @@
+profile: encrypted
+description: LVM-backed installation intended for deployment-specific encrypted storage extensions.
+template: ../templates/user-data.yaml.tmpl
+encrypted_storage: true
+warning: Add a reviewed TPM/key escrow design before enabling unattended unlock on production hardware.
+

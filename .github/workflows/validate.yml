@@ -1,0 +1,27 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby shellcheck
+          python3 -m pip install --disable-pip-version-check yamllint ansible-lint
+      - name: Validate repository
+        run: make validate
+      - name: Unit and integration tests
+        run: make test
+      - name: Ansible lint
+        run: ansible-lint ansible
+
