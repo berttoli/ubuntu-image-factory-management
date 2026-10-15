@@ -1,0 +1,25 @@
+name: dependency-maintenance
+
+on:
+  schedule:
+    - cron: "31 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-pins:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check workflow action references
+        run: |
+          if grep -RInE 'uses: [^@]+@(main|master|latest)' .github/workflows; then
+            echo 'ERROR: mutable GitHub Action reference found' >&2
+            exit 1
+          fi
+          echo 'workflow action references are versioned'
+      - name: Check configuration release URLs
+        run: make validate
+

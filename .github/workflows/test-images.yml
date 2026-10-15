@@ -1,0 +1,27 @@
+name: test-images
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [build-vm, build-baremetal, build-container]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-artifacts:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate configuration and tests
+        run: make validate test
+      - name: Verify image test prerequisites
+        run: |
+          command -v qemu-system-x86_64
+          command -v qemu-system-aarch64
+          command -v qemu-img
+          command -v docker
+      - name: Enforce no embedded credential markers in source
+        run: ./scripts/validate/no-secrets.sh

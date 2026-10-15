@@ -1,0 +1,28 @@
+name: upstream-monitor
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Canonical release metadata and runner labels
+        run: |
+          curl --fail --location --silent --show-error https://releases.ubuntu.com/26.04.1/SHA256SUMS >/tmp/ubuntu-26.04.1.SHA256SUMS
+          curl --fail --location --silent --show-error https://releases.ubuntu.com/24.04.5/SHA256SUMS >/tmp/ubuntu-24.04.5.SHA256SUMS
+          test -s /tmp/ubuntu-26.04.1.SHA256SUMS
+          test -s /tmp/ubuntu-24.04.5.SHA256SUMS
+      - name: Open duplicate-safe tracking issue when metadata changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list --label upstream --state open --json title --jq '.[].title' | grep -qxF 'Upstream image metadata review' || \
+            gh issue create --title 'Upstream image metadata review' --body 'Review Ubuntu release checksums, image URLs, runner labels, and builder versions. Close after config and changelog updates.'

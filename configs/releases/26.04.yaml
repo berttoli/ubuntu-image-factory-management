@@ -1,0 +1,6 @@
+release: "26.04"
+codename: resolute
+point_release: "26.04.1"
+kernel_package: linux-generic
+server_packages: [openssh-server, qemu-guest-agent, unattended-upgrades, ufw, apparmor, auditd]
+

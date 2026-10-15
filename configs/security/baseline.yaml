@@ -1,0 +1,46 @@
+schema_version: 1
+baseline: ubuntu-server-minimal
+rules:
+  ssh:
+    applicable: [baremetal, vm]
+    settings:
+      PermitRootLogin: "no"
+      PasswordAuthentication: "no"
+      KbdInteractiveAuthentication: "no"
+      PubkeyAuthentication: "yes"
+      X11Forwarding: "no"
+      MaxAuthTries: "3"
+    rationale: Use key-based management and reduce remote authentication attack surface.
+    validation: tests/security/test_baseline.py
+  firewall:
+    applicable: [baremetal, vm]
+    settings:
+      default_incoming: deny
+      default_outgoing: allow
+      allow_ssh: true
+    rationale: Deny unsolicited inbound traffic while preserving explicit management access.
+    validation: tests/security/test_baseline.py
+  unattended_upgrades:
+    applicable: [baremetal, vm]
+    settings:
+      security_origins_only: true
+      automatic_reboot: false
+    rationale: Apply security fixes automatically while leaving reboot scheduling to operations.
+    validation: tests/security/test_baseline.py
+  kernel:
+    applicable: [baremetal, vm]
+    settings:
+      kptr_restrict: 2
+      dmesg_restrict: 1
+      core_pattern: "|/bin/false"
+    rationale: Reduce information disclosure and accidental core-dump persistence.
+    validation: tests/security/test_baseline.py
+  container:
+    applicable: [container]
+    settings:
+      user: factory
+      systemd: false
+      sshd: false
+    rationale: Keep container scope separate from host hardening and run workloads without root.
+    validation: tests/security/test_baseline.py
+

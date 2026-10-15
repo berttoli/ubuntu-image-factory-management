@@ -1,0 +1,13 @@
+build/
+artifacts/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+*.retry
+*.log
+packer/.packer_cache/
+packer/*.lock.hcl
+secrets/
+
