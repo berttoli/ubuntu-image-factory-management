@@ -13,7 +13,7 @@ jobs:
   monitor:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check Canonical release metadata and runner labels
         run: |
           curl --fail --location --silent --show-error https://releases.ubuntu.com/26.04.1/SHA256SUMS >/tmp/ubuntu-26.04.1.SHA256SUMS

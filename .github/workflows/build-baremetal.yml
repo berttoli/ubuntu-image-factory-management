@@ -35,7 +35,7 @@ jobs:
       AUTOINSTALL_SSH_PUBLIC_KEY: ${{ secrets.AUTOINSTALL_SSH_PUBLIC_KEY }}
       AUTOINSTALL_TARGET_DISK_SERIAL: CI-AUTOINSTALL-DISK
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install ISO tooling
         run: sudo apt-get update && sudo apt-get install -y xorriso
       - name: Build installer ISO

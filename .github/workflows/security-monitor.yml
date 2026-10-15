@@ -13,7 +13,7 @@ jobs:
   ubuntu-security-feed:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Fetch Ubuntu OVAL feeds
         run: |
           mkdir -p artifacts/security-monitor
