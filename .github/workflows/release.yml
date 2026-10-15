@@ -151,7 +151,7 @@ jobs:
       - name: Sign release manifest
         run: cosign sign-blob --yes --output-signature artifacts/release/manifest.sig artifacts/release/manifest.json
       - name: Attest release manifest provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: artifacts/release/manifest.json
       - name: Create GitHub Release
