@@ -4,8 +4,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 if ! command -v rg >/dev/null 2>&1; then
-  echo "ERROR: rg is required for secret-pattern validation" >&2
-  exit 1
+  echo "NOTICE: rg not installed; using the Ruby standard-library secret scanner"
+  exec ruby "$ROOT_DIR/scripts/validate/no-secrets.rb"
 fi
 
 if rg -n --hidden --glob '!.git/**' --glob '!IMPLEMENTATION_STATUS.md' \
