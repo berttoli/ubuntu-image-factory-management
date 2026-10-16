@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   issues: write
 
 jobs:
@@ -14,15 +14,34 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Check Canonical release metadata and runner labels
+      - name: Validate configured upstream release metadata
         run: |
-          curl --fail --location --silent --show-error https://releases.ubuntu.com/26.04.1/SHA256SUMS >/tmp/ubuntu-26.04.1.SHA256SUMS
-          curl --fail --location --silent --show-error https://releases.ubuntu.com/24.04.5/SHA256SUMS >/tmp/ubuntu-24.04.5.SHA256SUMS
-          test -s /tmp/ubuntu-26.04.1.SHA256SUMS
-          test -s /tmp/ubuntu-24.04.5.SHA256SUMS
+          mkdir -p artifacts/upstream
+          ruby scripts/monitor/check_upstream.rb \
+            --output artifacts/upstream/report.json \
+            --state artifacts/upstream/state.sha256
+      - name: Check whether metadata is new
+        id: upstream-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: artifacts/upstream/state.sha256
+          key: ubuntu-upstream-metadata-${{ hashFiles('artifacts/upstream/state.sha256') }}
+          lookup-only: true
       - name: Open duplicate-safe tracking issue when metadata changes
+        if: steps.upstream-cache.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue list --label upstream --state open --json title --jq '.[].title' | grep -qxF 'Upstream image metadata review' || \
-            gh issue create --title 'Upstream image metadata review' --body 'Review Ubuntu release checksums, image URLs, runner labels, and builder versions. Close after config and changelog updates.'
+          gh issue list --state open --json title --jq '.[].title' | grep -qxF 'Upstream image metadata review' || \
+            gh issue create --title 'Upstream image metadata review' --body-file artifacts/upstream/report.md
+      - name: Save current metadata state
+        if: steps.upstream-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/upstream/state.sha256
+          key: ubuntu-upstream-metadata-${{ hashFiles('artifacts/upstream/state.sha256') }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upstream-metadata-${{ github.run_id }}
+          path: artifacts/upstream
+          retention-days: 14

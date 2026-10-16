@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-10-15
+Updated: 2026-10-16
 
 ## Current state
 
@@ -15,7 +15,7 @@ This repository was empty at project start. The factory is now scaffolded as a f
 | Bare-metal autoinstall | Implemented | Rendered autoinstall templates and ISO builder; requires Ubuntu ISO tooling |
 | OCI build | Implemented | `containers/Dockerfile`, buildx script |
 | SBOM/scanning/signing | Implemented as gated steps | Requires Syft, Trivy, Cosign and CI credentials for publication |
-| CI validation/monitoring/build/release | Implemented | Required workflow files present |
+| CI validation/monitoring/build/release | Implemented | Required workflow files present; upstream monitor validates all configured ISO checksums and runner labels, while security-feed changes request candidate VM and OCI rebuilds |
 | Local unit tests | Verified | Python standard-library unittest suite |
 | Local VM boot test | Blocked on host | macOS ARM64 host has no QEMU/Packer installed |
 | Local ISO build/install test | Blocked on host | `xorriso`, ISO tooling, and Linux installer execution unavailable |
@@ -52,6 +52,7 @@ The CI workflow `test-images.yml` is the canonical boot-test procedure and must 
 
 - `make validate`: passed; Packer and ShellCheck checks were explicitly deferred because those binaries are absent locally.
 - `make test`: passed, 8 tests.
+- `scripts/monitor/check_upstream.rb`: live validation passed against Canonical 26.04.1/24.04.5 amd64 and arm64 checksum manifests and the Actions runner metadata; digest `408ddc214e19db8081ae9a4777d8dc3560c15aa1f886923e8b15288ee57094d3`.
 - Bash syntax checks: passed for all shell scripts.
 - Python compile checks: passed for scripts and tests.
 - `make preflight`: passed required host checks; reported target-specific tools as unavailable.
@@ -59,4 +60,3 @@ The CI workflow `test-images.yml` is the canonical boot-test procedure and must 
 - `make build-iso`: refused with the expected missing-xorriso error.
 - `make build-container`: refused with the expected unavailable-Docker-daemon error.
 - `make security`: refused with the expected missing-Trivy error; no empty report was produced.
-- Git repository initialization/commit: unavailable because the workspace exposes `.git` as read-only/special and does not permit creating repository metadata.

@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: read
   issues: write
 
@@ -20,26 +21,30 @@ jobs:
           curl --fail --location --silent --show-error https://security-metadata.canonical.com/oval/com.ubuntu.noble.cve.oval.xml.bz2 -o artifacts/security-monitor/noble.oval.xml.bz2
           curl --fail --location --silent --show-error https://security-metadata.canonical.com/oval/com.ubuntu.resolute.cve.oval.xml.bz2 -o artifacts/security-monitor/resolute.oval.xml.bz2
       - name: Record feed checksum
-        run: sha256sum artifacts/security-monitor/* > artifacts/security-monitor/SHA256SUMS
-      - name: Restore previous feed state
+        run: sha256sum artifacts/security-monitor/*.oval.xml.bz2 | sort > artifacts/security-monitor/SHA256SUMS
+      - name: Check whether the feed is new
         id: feed-cache
         uses: actions/cache/restore@v4
         with:
-          path: artifacts/security-monitor
+          path: artifacts/security-monitor/SHA256SUMS
           key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
+          lookup-only: true
       - name: Trigger rebuild and create a tracking issue when the feed changes
         if: steps.feed-cache.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh issue list --state open --json title --jq '.[].title' | grep -qxF 'Ubuntu security feed changed' || \
-            gh issue create --title 'Ubuntu security feed changed' --body 'The authoritative Ubuntu OVAL feed changed. Review the vulnerability gate and promote rebuilt artifacts after validation.'
-          gh workflow run build-vm.yml --ref "${GITHUB_REF_NAME}" -f release=26.04 -f architecture=amd64
+            gh issue create --title 'Ubuntu security feed changed' --body 'The authoritative Ubuntu OVAL feed changed. Candidate amd64 VM and multi-architecture OCI rebuilds were requested for both supported Ubuntu releases. Review vulnerability gates and promote artifacts only after validation.'
+          for release in 26.04 24.04; do
+            gh workflow run build-vm.yml --ref "${GITHUB_REF_NAME}" -f release="$release" -f architecture=amd64
+            gh workflow run build-container.yml --ref "${GITHUB_REF_NAME}" -f release="$release" -f publish=false
+          done
       - name: Save current feed state
         if: steps.feed-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: artifacts/security-monitor
+          path: artifacts/security-monitor/SHA256SUMS
           key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
       - uses: actions/upload-artifact@v4
         with:
