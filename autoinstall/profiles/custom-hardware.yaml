@@ -3,4 +3,3 @@ description: Hardware-specific profile; caller must provide an inventory-reviewe
 template: ../templates/user-data.yaml.tmpl
 encrypted_storage: false
 requires_hardware_review: true
-

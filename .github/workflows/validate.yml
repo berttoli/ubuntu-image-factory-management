@@ -24,4 +24,3 @@ jobs:
         run: make test
       - name: Ansible lint
         run: ansible-lint ansible
-

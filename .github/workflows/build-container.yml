@@ -54,4 +54,3 @@ jobs:
         with:
           name: container-sbom-${{ matrix.arch }}
           path: sbom-${{ matrix.arch }}.spdx.json
-

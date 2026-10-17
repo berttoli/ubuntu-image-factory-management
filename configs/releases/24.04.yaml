@@ -3,4 +3,3 @@ codename: noble
 point_release: "24.04.5"
 kernel_package: linux-generic
 server_packages: [openssh-server, qemu-guest-agent, unattended-upgrades, ufw, apparmor, auditd]
-

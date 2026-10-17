@@ -2,4 +2,3 @@ profile: minimal
 description: Minimal server with explicit target disk serial and SSH key access.
 template: ../templates/user-data.yaml.tmpl
 encrypted_storage: false
-

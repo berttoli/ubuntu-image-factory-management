@@ -22,4 +22,3 @@ jobs:
           echo 'workflow action references are versioned'
       - name: Check configuration release URLs
         run: make validate
-
