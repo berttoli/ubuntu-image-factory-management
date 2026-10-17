@@ -15,6 +15,7 @@ make help
 make preflight
 make validate
 make test
+make audit
 make build-container
 ```
 
@@ -46,5 +47,6 @@ Security scans are promotion gates. Missing scanner binaries or unavailable vuln
 
 The workflows under `.github/workflows/` validate changes, monitor Ubuntu/tooling/security updates, build each target on demand or weekly, and publish immutable releases only after tests, SBOM, provenance, vulnerability checks, and signing complete. Publishing requires repository configuration and credentials; local commands default to dry-run/non-publish behavior.
 
-See `docs/architecture/overview.md`, `docs/security/baseline.md`, and `docs/operations/release.md` for the design and operating procedures. `IMPLEMENTATION_STATUS.md` is the source of truth for verified capabilities and blockers.
+See `docs/architecture/overview.md`, `docs/architecture/system.md`, `docs/security/baseline.md`, and `docs/operations/release.md` for the design and operating procedures. The portfolio baseline, backlog, 12-week plan, and agent policy are under `docs/portfolio/`, `docs/planning/`, and `docs/operations/agent-policy.md`. `IMPLEMENTATION_STATUS.md` is the source of truth for verified capabilities and blockers.
 
+`make audit` produces ignored JSON and Markdown evidence under `artifacts/audit/`. It checks the repository contract and executes `make validate` and `make test`; missing target-specific tools remain explicit blockers rather than being reported as successful builds.

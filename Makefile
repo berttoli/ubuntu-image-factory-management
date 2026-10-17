@@ -6,13 +6,14 @@ ARCH ?= amd64
 FORMAT ?= qcow2
 PROFILE ?= hardened
 
-.PHONY: help preflight validate test security build-vm build-iso build-container test-vm verify-release clean
+.PHONY: help preflight validate test audit security build-vm build-iso build-container test-vm verify-release clean
 
 help:
 	@printf '%s\n' \
 	  'make preflight                 Check host capabilities and inputs' \
 	  'make validate                  Validate YAML, config, secrets, Packer/shell when installed' \
 	  'make test                      Run standard-library unit/integration/security tests' \
+	  'make audit                     Produce machine-readable baseline evidence' \
 	  'make security                  Run mandatory Syft + Trivy security gates' \
 	  'make build-vm                  Build QCOW2 or RAW with Packer/QEMU' \
 	  'make build-iso                 Build unattended bare-metal ISO on Linux' \
@@ -28,6 +29,9 @@ validate:
 
 test:
 	@python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+audit:
+	@python3 scripts/audit/repository_audit.py
 
 security:
 	@ARTIFACT=$(or $(ARTIFACT),build/container) ./scripts/security/scan.sh
