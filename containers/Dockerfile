@@ -4,7 +4,7 @@ FROM ubuntu:${UBUNTU_RELEASE}
 ARG UBUNTU_RELEASE
 LABEL org.opencontainers.image.title="Ubuntu Image Factory minimal runtime" \
       org.opencontainers.image.description="Minimal Ubuntu base with no SSH or init system" \
-      org.opencontainers.image.source="https://github.com/OWNER/ubuntu-image-factory" \
+      org.opencontainers.image.source="https://github.com/berttoli/ubuntu-image-factory-management" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.base.name="ubuntu:${UBUNTU_RELEASE}"
 
@@ -21,4 +21,3 @@ RUN apt-get update \
 USER factory
 WORKDIR /home/factory
 CMD ["/usr/bin/env"]
-

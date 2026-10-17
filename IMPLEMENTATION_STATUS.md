@@ -4,7 +4,7 @@ Updated: 2026-10-16
 
 ## Current state
 
-This repository was empty at project start. The factory is now scaffolded as a functional, configuration-driven platform with local validation/tests, target-specific build entry points, and GitHub Actions release gates.
+This repository was empty at project start. The factory now has a configuration-driven implementation, local validation/tests, target-specific build entry points, GitHub Actions release gates, and a machine-verifiable portfolio audit. Artifact production remains partially unverified until Linux/QEMU/Docker/security-tool execution evidence is captured.
 
 | Area | Status | Evidence / limitation |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ This repository was empty at project start. The factory is now scaffolded as a f
 | OCI build | Implemented | `containers/Dockerfile`, buildx script |
 | SBOM/scanning/signing | Implemented as gated steps | Requires Syft, Trivy, Cosign and CI credentials for publication |
 | CI validation/monitoring/build/release | Implemented | Required workflow files present; upstream monitor validates all configured ISO checksums and runner labels, while security-feed changes request candidate VM and OCI rebuilds |
+| Portfolio baseline and evidence audit | Verified | `make audit`, typed `scripts/audit/repository_audit.py`, JSON/Markdown report, structural audit test |
 | Local unit tests | Verified | Python standard-library unittest suite |
 | Local VM boot test | Blocked on host | macOS ARM64 host has no QEMU/Packer installed |
 | Local ISO build/install test | Blocked on host | `xorriso`, ISO tooling, and Linux installer execution unavailable |
@@ -51,7 +52,8 @@ The CI workflow `test-images.yml` is the canonical boot-test procedure and must 
 ## Verification log
 
 - `make validate`: passed; Packer and ShellCheck checks were explicitly deferred because those binaries are absent locally.
-- `make test`: passed, 8 tests.
+- `make test`: passed, 11 tests.
+- `make audit`: passed; structural checks and `make validate`/`make test` gates passed; target-specific tool availability recorded in `artifacts/audit/portfolio-audit.json`.
 - `scripts/monitor/check_upstream.rb`: live validation passed against Canonical 26.04.1/24.04.5 amd64 and arm64 checksum manifests and the Actions runner metadata; digest `408ddc214e19db8081ae9a4777d8dc3560c15aa1f886923e8b15288ee57094d3`.
 - Bash syntax checks: passed for all shell scripts.
 - Python compile checks: passed for scripts and tests.
