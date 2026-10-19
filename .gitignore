@@ -1,5 +1,5 @@
-build/
-artifacts/
+/build/
+/artifacts/
 .venv/
 __pycache__/
 *.py[cod]
@@ -10,4 +10,3 @@ __pycache__/
 packer/.packer_cache/
 packer/*.lock.hcl
 secrets/
-
