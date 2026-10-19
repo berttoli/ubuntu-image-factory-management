@@ -36,6 +36,12 @@ jobs:
       AUTOINSTALL_TARGET_DISK_SERIAL: CI-AUTOINSTALL-DISK
     steps:
       - uses: actions/checkout@v4
+      - name: Check required installer inputs
+        run: |
+          if [[ -z "$AUTOINSTALL_PASSWORD_HASH" || -z "$AUTOINSTALL_SSH_PUBLIC_KEY" ]]; then
+            echo 'ERROR: configure AUTOINSTALL_PASSWORD_HASH and AUTOINSTALL_SSH_PUBLIC_KEY repository secrets before building installer media' >&2
+            exit 1
+          fi
       - name: Install ISO tooling
         run: sudo apt-get update && sudo apt-get install -y xorriso
       - name: Build installer ISO

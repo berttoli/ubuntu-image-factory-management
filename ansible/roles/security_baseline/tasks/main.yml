@@ -20,4 +20,3 @@
   ansible.builtin.file:
     path: /etc/machine-id
     state: absent
-

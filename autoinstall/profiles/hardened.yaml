@@ -2,4 +2,3 @@ profile: hardened
 description: Minimal profile plus host firewall, AppArmor, auditd, and stricter kernel/SSH settings.
 template: ../templates/user-data.yaml.tmpl
 encrypted_storage: false
-

@@ -43,4 +43,3 @@ rules:
       sshd: false
     rationale: Keep container scope separate from host hardening and run workloads without root.
     validation: tests/security/test_baseline.py
-

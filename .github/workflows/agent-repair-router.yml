@@ -1,0 +1,45 @@
+name: agent-repair-router
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+  workflow_run:
+    workflows:
+      - validate
+      - dependency-maintenance
+      - test-images
+      - build-baremetal
+      - build-vm
+      - build-container
+      - upstream-monitor
+      - security-monitor
+      - release
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: agent-repair-${{ github.event.pull_request.number || github.event.workflow_run.name || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    if: >-
+      (github.event_name == 'pull_request_target' && github.event.pull_request.user.login == 'dependabot[bot]') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Create or reuse repair issue and assign custom agent
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_ASSIGNMENT_TOKEN: ${{ secrets.COPILOT_ASSIGNMENT_TOKEN }}
+        run: python3 scripts/automation/repair_router.py

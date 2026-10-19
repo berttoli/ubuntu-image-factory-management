@@ -12,7 +12,8 @@ Agents are implementation assistants, not release authorities. The repository mu
 | Read public upstream metadata | Allow | Record source and timestamp; do not silently rewrite tracked configuration. |
 | Install packages/tools | Ask | Requires user approval and should use documented, reproducible versions. |
 | Push a branch | Ask | User must explicitly authorize the remote and branch. |
-| Open/modify/close GitHub issues or pull requests | Ask | Include exact scope and generated content; never close review work automatically. |
+| Open GitHub repair issues and agent fix PRs | Allow for the `agent-repair-router` workflow | Limited to Dependabot PRs and selected failed workflows; human review remains required. |
+| Modify/close unrelated GitHub issues or pull requests | Ask | Include exact scope and generated content; never close review work automatically. |
 | Publish images, releases, signatures, or GHCR tags | Ask | Requires explicit release authorization and passed gates. |
 | Change external infrastructure or credentials | Deny by default | Requires explicit scope, approval, and an auditable change plan. |
 | Destructive disk, filesystem, or history operations | Deny by default | Require explicit target, confirmation, and recovery path. |

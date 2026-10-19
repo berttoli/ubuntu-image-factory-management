@@ -50,3 +50,5 @@ The workflows under `.github/workflows/` validate changes, monitor Ubuntu/toolin
 See `docs/architecture/overview.md`, `docs/architecture/system.md`, `docs/security/baseline.md`, and `docs/operations/release.md` for the design and operating procedures. The portfolio baseline, backlog, 12-week plan, and agent policy are under `docs/portfolio/`, `docs/planning/`, and `docs/operations/agent-policy.md`. `IMPLEMENTATION_STATUS.md` is the source of truth for verified capabilities and blockers.
 
 `make audit` produces ignored JSON and Markdown evidence under `artifacts/audit/`. It checks the repository contract and executes `make validate` and `make test`; missing target-specific tools remain explicit blockers rather than being reported as successful builds.
+
+The [repair agent setup](docs/operations/agent-repair.md) explains how Dependabot PRs and failing workflows are routed to the repository's Copilot custom agent for reviewable fix PRs.
