@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Route Dependabot updates and failed Actions runs to the custom repair agent."""
+"""Create repair issues and dispatch trusted tasks to the Claude workflow."""
 
 from __future__ import annotations
 
@@ -7,15 +7,13 @@ import json
 import os
 import sys
 import urllib.error
-import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 
-AGENT_ID = "factory-repair"
-COPILOT_LOGIN = "copilot-swe-agent[bot]"
+CLAUDE_DISPATCH_MARKER = "<!-- claude-repair-dispatched -->"
 
 
 @dataclass(frozen=True)
@@ -51,12 +49,21 @@ def task_from_event(event_name: str, event: dict[str, Any], repository: str) -> 
         run = event.get("workflow_run") or {}
         if event.get("action") != "completed" or run.get("conclusion") != "failure":
             return None
-        if (run.get("actor") or {}).get("login") in {"copilot-swe-agent[bot]", "copilot-swe-agent"}:
+        head_repository = run.get("head_repository") or {}
+        if head_repository.get("full_name") not in {None, repository}:
+            return None
+        if (run.get("actor") or {}).get("login") in {"claude[bot]", "github-actions[bot]"}:
+            return None
+        if str(run.get("head_branch") or "").startswith("claude/"):
             return None
         workflow = str(run["name"])
         run_id = int(run["id"])
         run_url = str(run["html_url"])
         prs = run.get("pull_requests") or []
+        if prs:
+            head_repo = (prs[0].get("head") or {}).get("repo") or {}
+            if head_repo.get("full_name") != repository:
+                return None
         pr_number = int(prs[0]["number"]) if prs else None
         scope = f"pr-{pr_number}" if pr_number else str(run.get("head_branch") or default_branch)
         key = f"workflow-{workflow}-{scope}".lower().replace(" ", "-")
@@ -93,7 +100,8 @@ class GitHubAPI:
             },
         )
         with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
+            response_body = response.read()
+            return json.loads(response_body) if response_body else None
 
     def find_open_issue(self, key: str) -> dict[str, Any] | None:
         marker = f"<!-- repair-router:{key} -->"
@@ -112,36 +120,35 @@ class GitHubAPI:
         payload = {"title": task.title, "body": f"{task.body}\n<!-- repair-router:{task.key} -->\n"}
         return self.request("POST", f"/repos/{self.repository}/issues", payload)
 
-    def assign_agent(self, issue_number: int, base_branch: str) -> None:
-        payload = {
-            "assignees": [COPILOT_LOGIN],
-            "agent_assignment": {
-                "target_repo": self.repository,
-                "base_branch": base_branch,
-                "custom_agent": AGENT_ID,
-                "custom_instructions": "Follow AGENTS.md; reproduce and patch only the issue's concrete failure. Open a reviewable PR when a fix is justified.",
-            },
-        }
-        self.request("POST", f"/repos/{self.repository}/issues/{issue_number}/assignees", payload)
+    def dispatch_claude(self, issue_number: int) -> None:
+        self.request(
+            "POST",
+            f"/repos/{self.repository}/dispatches",
+            {"event_type": "claude_repair", "client_payload": {"issue_number": issue_number}},
+        )
+
+    def mark_dispatched(self, issue_number: int, body: str) -> None:
+        updated_body = f"{body.rstrip()}\n{CLAUDE_DISPATCH_MARKER}\n"
+        self.request("PATCH", f"/repos/{self.repository}/issues/{issue_number}", {"body": updated_body})
 
 
-def route(event_name: str, event: dict[str, Any], repository: str, issue_token: str, agent_token: str) -> str:
+def route(event_name: str, event: dict[str, Any], repository: str, token: str) -> str:
     task = task_from_event(event_name, event, repository)
     if task is None:
         return "event ignored"
-    if not issue_token:
+    if not token:
         raise ValueError("GITHUB_TOKEN is required to create a repair issue")
-    api = GitHubAPI(repository, issue_token)
+    api = GitHubAPI(repository, token)
     issue = api.find_open_issue(task.key)
     if issue is None:
         issue = api.create_issue(task)
     number = int(issue["number"])
-    if any(assignee.get("login") == COPILOT_LOGIN for assignee in issue.get("assignees", [])):
-        return f"issue #{number} already assigned to Copilot"
-    if not agent_token:
-        raise RuntimeError(f"issue #{number} remains open: COPILOT_ASSIGNMENT_TOKEN is missing")
-    GitHubAPI(repository, agent_token).assign_agent(number, task.base_branch)
-    return f"issue #{number} assigned to {AGENT_ID}"
+    body = str(issue.get("body") or "")
+    if CLAUDE_DISPATCH_MARKER in body:
+        return f"repair issue #{number} already dispatched to Claude"
+    api.dispatch_claude(number)
+    api.mark_dispatched(number, body)
+    return f"repair issue #{number} dispatched to Claude"
 
 
 def main() -> int:
@@ -152,8 +159,7 @@ def main() -> int:
             os.environ["GITHUB_EVENT_NAME"],
             event,
             os.environ["GITHUB_REPOSITORY"],
-            os.environ.get("COPILOT_ASSIGNMENT_TOKEN") or os.environ.get("GITHUB_TOKEN", ""),
-            os.environ.get("COPILOT_ASSIGNMENT_TOKEN", ""),
+            os.environ.get("GITHUB_TOKEN", ""),
         )
     except (KeyError, ValueError, RuntimeError, urllib.error.HTTPError, urllib.error.URLError) as error:
         print(f"repair routing failed: {error}", file=sys.stderr)

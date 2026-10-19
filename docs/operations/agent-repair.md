@@ -1,30 +1,34 @@
-# Copilot repair agent
+# Claude repair automation
 
-The repository custom agent is `.github/agents/factory-repair.agent.md`. GitHub loads repository agents from the default branch. The `agent-repair-router` workflow creates a repair issue for each new Dependabot PR and for failed image-factory workflows. It reuses an existing open issue for the same PR or workflow/branch. When agent assignment is configured, it assigns the issue to Copilot with the `factory-repair` profile. Copilot then works on a branch and requests review through a pull request.
+The `agent-repair-router` workflow creates or reuses one issue for a new Dependabot PR or eligible failed workflow. It dispatches `claude-repair` through GitHub's repository dispatch API. Claude investigates the issue using the trusted default-branch checkout and available Actions logs, then leaves a change on a `claude/` branch. The workflow opens a draft PR for human review. It never merges, publishes, or deploys.
+
+The router ignores successful runs, Claude-authored runs, Claude branches, and failed workflows for pull requests from forks. A marker in each issue prevents repeated failures from dispatching duplicate Claude tasks. Previously created, undispatched repair issues can be started through the `claude-repair` workflow's manual dispatch input.
 
 ## One-time repository setup
 
-1. Merge the feature branch containing this profile and router into the default branch after review.
-2. Enable Copilot cloud agent for this repository and confirm `factory-repair` appears in the agent selector. A paid Copilot plan is required.
-3. Create a repository-scoped fine-grained user token with metadata read and actions, contents, issues, and pull requests read/write access, as required by GitHub's Copilot assignment API. Store it as the Actions secret `COPILOT_ASSIGNMENT_TOKEN`. Use a short expiration and rotate it on schedule. The token is used only by the trusted default-branch router workflow.
-4. Confirm the repository Actions setting permits pull requests from Copilot and that branch protection requires `validate` and human review. Do not enable auto-merge for agent PRs.
-5. Open a small test issue manually and assign `factory-repair` through GitHub's agent selector. Then test the router with a Dependabot PR or a failed workflow run. Check that one issue and one agent task are created, and that its PR carries evidence.
+1. Install the [Claude Code GitHub App](https://github.com/apps/claude) for this repository. Confirm its repository permissions allow reading Actions runs and logs, creating branches, and opening pull requests.
+2. Add an Anthropic API key as the repository Actions secret `ANTHROPIC_API_KEY`. The key is used only by `claude-repair`; never store it in repository files or workflow inputs. An OAuth token or workload identity federation can be configured instead by changing the Claude action inputs.
+3. Keep the workflow's `id-token: write`, `actions: read`, `contents: write`, `issues: write`, and `pull-requests: write` permissions. The router separately needs `contents: write` to dispatch Claude and `issues: write` to manage repair issues.
+4. Require the validation checks and human review for merging Claude draft PRs. Do not enable auto-merge.
+5. Run a manual smoke test by dispatching `claude-repair` with an open router-created issue number. Confirm the action reads the task, creates a `claude/` branch, opens a draft PR, and CI runs on that PR.
 
-Without the secret, the router still creates an issue and fails visibly so manual `factory-repair` assignment is needed. If the API rejects assignment, the workflow also fails and the issue remains open. The `GITHUB_TOKEN` alone is not sufficient for the Copilot assignment API.
+No Copilot entitlement or `COPILOT_ASSIGNMENT_TOKEN` is used. Claude API usage is billed by Anthropic under the configured credential.
 
-## Routing behavior
+## Routing and safety
 
 | Event | Result |
 | --- | --- |
-| Dependabot PR opened or reopened | One issue keyed to the PR number; agent reviews the update and opens a separate fix PR only if repository code needs a change. |
-| Selected workflow completes with failure | One issue keyed to the workflow and PR/branch; agent investigates the run and opens a fix PR when justified. |
-| Successful workflow or non-Dependabot PR | No repair issue. |
-| Failed run started by Copilot | No new repair issue; review the existing agent PR and its check results. |
+| Dependabot PR opened or reopened | Create/reuse a repair issue and dispatch Claude once for that issue. |
+| Eligible failed Actions run | Create/reuse a repair issue and dispatch Claude once for that issue. |
+| Failed workflow from a fork PR | Ignore it; do not run an agent with repository write access on external PR content. |
+| Successful run, Claude-authored run, or `claude/` branch | Ignore it to prevent unnecessary work and repair loops. |
 
-The router runs from the default branch and never checks out the triggering PR or downloads its artifacts. It passes PR titles and run metadata as data in an issue; the agent profile instructs Copilot to treat those fields and logs as untrusted. It does not merge, publish, or deploy.
+The router does not check out triggering PR code. The Claude workflow checks out the default branch only. Issue text, PR metadata, and logs are untrusted evidence; the agent instructions forbid treating them as authority. The action's generated branch is restricted to the `claude/` prefix before the workflow creates a draft PR.
+
+The action receives read access to Actions logs and write access needed to prepare a repair branch and pull request. All generated PRs remain drafts and require normal CI and human review.
 
 ## Verification
 
-Run `make validate`, `make test`, and `make audit`. For a remote smoke test, inspect the `agent-repair-router` run, its issue, assignment, Copilot task, and resulting PR. Local tests cover event filtering, repository matching, duplicate issue reuse, and the custom-agent assignment payload. They cannot prove Copilot entitlements, token permissions, or the remote agent's PR behavior.
+Run `make validate`, `make test`, and `make audit`. Unit tests cover event filtering, fork rejection, issue deduplication, dispatch idempotency, and response handling. They cannot verify Anthropic credentials, Claude App installation permissions, or remote PR creation; a GitHub smoke test is required for those capabilities.
 
-GitHub references: [custom agent tutorial](https://docs.github.com/en/copilot/tutorials/customization-library/custom-agents/your-first-custom-agent), [custom agent configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration), [cloud agent assignment API](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/use-cloud-agent-via-the-api).
+References: [Claude Code Action setup](https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md), [usage and supported inputs](https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md), [action security guidance](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md), [GitHub workflow triggering rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
