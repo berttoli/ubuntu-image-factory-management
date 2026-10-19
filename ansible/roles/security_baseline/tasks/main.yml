@@ -13,8 +13,8 @@
 
 - name: Apply shared hardening script
   ansible.builtin.script: "{{ playbook_dir }}/../scripts/apply-hardening.sh"
-  register: hardening_result
-  changed_when: hardening_result.rc == 0
+  register: security_baseline_hardening_result
+  changed_when: security_baseline_hardening_result.rc == 0
 
 - name: Ensure machine identity is regenerated on first boot
   ansible.builtin.file:
