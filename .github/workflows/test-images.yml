@@ -17,11 +17,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate configuration and tests
         run: make validate test
-      - name: Verify image test prerequisites
+      - name: Install VM and installer test prerequisites
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.name == 'build-vm' || github.event.workflow_run.name == 'build-baremetal' }}
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-utils
+      - name: Verify VM test prerequisites
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.name == 'build-vm' }}
         run: |
           command -v qemu-system-x86_64
           command -v qemu-system-aarch64
           command -v qemu-img
+      - name: Verify container test prerequisites
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.name == 'build-container' }}
+        run: |
           command -v docker
       - name: Enforce no embedded credential markers in source
         run: ./scripts/validate/no-secrets.sh
