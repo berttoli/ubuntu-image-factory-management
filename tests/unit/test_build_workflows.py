@@ -24,6 +24,15 @@ class BuildWorkflowTests(unittest.TestCase):
                 self.assertIn("Check required installer inputs" if workflow_name == "build-baremetal.yml" else "Materialize ephemeral SSH key file", workflow)
                 self.assertIn(f'-z "${required}"', workflow)
 
+    def test_image_validation_installs_and_scopes_prerequisites(self) -> None:
+        workflow = (ROOT / ".github/workflows/test-images.yml").read_text(encoding="utf-8")
+        self.assertIn("sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-utils", workflow)
+        self.assertIn("github.event.workflow_run.name == 'build-vm'", workflow)
+        self.assertIn("github.event.workflow_run.name == 'build-baremetal'", workflow)
+        self.assertIn("github.event.workflow_run.name == 'build-container'", workflow)
+        self.assertIn("command -v docker", workflow)
+        self.assertIn("command -v qemu-system-x86_64", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
