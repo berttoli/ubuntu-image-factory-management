@@ -24,7 +24,7 @@ jobs:
         run: sha256sum artifacts/security-monitor/*.oval.xml.bz2 | sort > artifacts/security-monitor/SHA256SUMS
       - name: Check whether the feed is new
         id: feed-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: artifacts/security-monitor/SHA256SUMS
           key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
@@ -42,7 +42,7 @@ jobs:
           done
       - name: Save current feed state
         if: steps.feed-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: artifacts/security-monitor/SHA256SUMS
           key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
