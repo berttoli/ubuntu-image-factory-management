@@ -50,7 +50,7 @@ jobs:
         run: make build-vm FORMAT=raw
       - name: Boot test
         run: make test-vm IMAGE="build/vm/ubuntu-${RELEASE}-${ARCH}.qcow2"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vm-${{ env.RELEASE }}-${{ env.ARCH }}
           path: build/vm

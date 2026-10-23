@@ -47,7 +47,7 @@ jobs:
       - name: Build installer ISO
         run: make build-iso
       - name: Upload installer ISO
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: baremetal-${{ env.RELEASE }}-${{ env.ARCH }}-${{ env.PROFILE }}
           path: build/iso/*.iso*
