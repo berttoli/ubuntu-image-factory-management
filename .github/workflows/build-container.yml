@@ -54,7 +54,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Generate SBOM
         run: syft "${IMAGE_NAME}" -o spdx-json > "sbom-${{ matrix.arch }}.spdx.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: container-sbom-${{ matrix.arch }}
           path: sbom-${{ matrix.arch }}.spdx.json

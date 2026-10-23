@@ -46,7 +46,7 @@ jobs:
         with:
           path: artifacts/security-monitor/SHA256SUMS
           key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ubuntu-security-feed-${{ github.run_id }}
           path: artifacts/security-monitor
