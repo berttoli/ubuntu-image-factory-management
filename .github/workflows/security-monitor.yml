@@ -4,11 +4,20 @@ on:
   schedule:
     - cron: "43 5 * * *"
   workflow_dispatch:
+    inputs:
+      refresh_issue:
+        description: Refresh the open tracking issue with current feed digests
+        type: boolean
+        default: false
 
 permissions:
   actions: write
   contents: read
   issues: write
+
+concurrency:
+  group: security-monitor
+  cancel-in-progress: false
 
 jobs:
   ubuntu-security-feed:
@@ -29,17 +38,30 @@ jobs:
           path: artifacts/security-monitor/SHA256SUMS
           key: ubuntu-security-feed-${{ hashFiles('artifacts/security-monitor/SHA256SUMS') }}
           lookup-only: true
-      - name: Trigger rebuild and create a tracking issue when the feed changes
+      - name: Trigger candidate rebuilds when the feed changes
         if: steps.feed-cache.outputs.cache-hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue list --state open --json title --jq '.[].title' | grep -qxF 'Ubuntu security feed changed' || \
-            gh issue create --title 'Ubuntu security feed changed' --body 'The authoritative Ubuntu OVAL feed changed. Candidate amd64 VM and multi-architecture OCI rebuilds were requested for both supported Ubuntu releases. Review vulnerability gates and promote artifacts only after validation.'
           for release in 26.04 24.04; do
             gh workflow run build-vm.yml --ref "${GITHUB_REF_NAME}" -f release="$release" -f architecture=amd64
             gh workflow run build-container.yml --ref "${GITHUB_REF_NAME}" -f release="$release" -f publish=false
           done
+      - name: Explain current security feed state
+        if: steps.feed-cache.outputs.cache-hit != 'true' || inputs.refresh_issue == true
+        env:
+          FEED_CHANGED: ${{ steps.feed-cache.outputs.cache-hit != 'true' }}
+        run: python3 scripts/monitor/security_report.py artifacts/security-monitor/SHA256SUMS artifacts/security-monitor/report.md
+      - name: Create or refresh security feed issue
+        if: steps.feed-cache.outputs.cache-hit != 'true' || inputs.refresh_issue == true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/monitor/reconcile_issue.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --title 'Ubuntu security feed changed' \
+            --body-file artifacts/security-monitor/report.md \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
       - name: Save current feed state
         if: steps.feed-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6

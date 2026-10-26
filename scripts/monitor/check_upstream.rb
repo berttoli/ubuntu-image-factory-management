@@ -107,6 +107,8 @@ summary = <<~MARKDOWN
   #{report['runner_labels'].map { |entry| "- `#{entry['label']}`: available" }.join("\n  ")}
 
   Stable metadata digest: `#{state_digest}`
+
+  Review the ISO URLs and digests against `configs/factory.yaml`, confirm the point releases and build-tool versions are still supported, and update configuration/changelog if necessary. The monitor verifies the configured media entries; it does not discover a newer point release or automatically promote one. Close the tracking issue only after recording that review.
 MARKDOWN
 write_file(options[:output].sub(/\.json\z/, ".md"), summary)
 puts "Upstream metadata validated; stable digest #{state_digest}"

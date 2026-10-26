@@ -4,10 +4,19 @@ on:
   schedule:
     - cron: "17 4 * * *"
   workflow_dispatch:
+    inputs:
+      refresh_issue:
+        description: Refresh the open tracking issue with current evidence
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   issues: write
+
+concurrency:
+  group: upstream-monitor
+  cancel-in-progress: false
 
 jobs:
   monitor:
@@ -27,13 +36,16 @@ jobs:
           path: artifacts/upstream/state.sha256
           key: ubuntu-upstream-metadata-${{ hashFiles('artifacts/upstream/state.sha256') }}
           lookup-only: true
-      - name: Open duplicate-safe tracking issue when metadata changes
-        if: steps.upstream-cache.outputs.cache-hit != 'true'
+      - name: Create or refresh tracking issue when metadata changes
+        if: steps.upstream-cache.outputs.cache-hit != 'true' || inputs.refresh_issue == true
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          gh issue list --state open --json title --jq '.[].title' | grep -qxF 'Upstream image metadata review' || \
-            gh issue create --title 'Upstream image metadata review' --body-file artifacts/upstream/report.md
+          python3 scripts/monitor/reconcile_issue.py \
+            --repository "$GITHUB_REPOSITORY" \
+            --title 'Upstream image metadata review' \
+            --body-file artifacts/upstream/report.md \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
       - name: Save current metadata state
         if: steps.upstream-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
