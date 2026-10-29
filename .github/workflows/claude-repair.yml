@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
       - name: Load and validate repair issue
         id: issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ github.event.client_payload.issue_number || inputs.issue_number }}
         with:
@@ -80,7 +80,7 @@ jobs:
         if: >-
           success() && steps.claude.outputs.conclusion == 'success' &&
           steps.claude.outputs.branch_name != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           CLAUDE_BRANCH: ${{ steps.claude.outputs.branch_name }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
