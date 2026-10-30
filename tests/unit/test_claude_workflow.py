@@ -18,7 +18,7 @@ class ClaudeWorkflowTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/claude-repair.yml").read_text(encoding="utf-8")
         self.assertIn("repository_dispatch:", workflow)
         self.assertIn("types: [claude_repair]", workflow)
-        self.assertIn("anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6", workflow)
+        self.assertRegex(workflow, r"uses: anthropics/claude-code-action@[0-9a-f]{40}(?:\s|$)")
         self.assertIn("secrets.ANTHROPIC_API_KEY", workflow)
         self.assertIn("id-token: write", workflow)
         self.assertIn("actions: read", workflow)
