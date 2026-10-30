@@ -41,12 +41,16 @@ class MonitorIssueTests(unittest.TestCase):
             "a" * 64 + "  artifacts/security-monitor/noble.oval.xml.bz2\n"
             + "b" * 64 + "  artifacts/security-monitor/resolute.oval.xml.bz2\n"
         )
-        changed = security_report.render(checksums, changed=True)
+        changed = security_report.render(checksums, changed=True, vm_requested=True)
+        blocked = security_report.render(checksums, changed=True, vm_requested=False)
         refreshed = security_report.render(checksums, changed=False)
         self.assertIn("Ubuntu 24.04 (noble)", changed)
         self.assertIn("Ubuntu 26.04 (resolute)", changed)
-        self.assertIn("rebuilds were dispatched", changed)
+        self.assertIn("VM (amd64) and container", changed)
+        self.assertIn("VM rebuilds were deferred", blocked)
         self.assertIn("did not dispatch candidate rebuilds", refreshed)
+        with self.assertRaisesRegex(ValueError, "feed is unchanged"):
+            security_report.render(checksums, changed=False, vm_requested=True)
 
 
 if __name__ == "__main__":

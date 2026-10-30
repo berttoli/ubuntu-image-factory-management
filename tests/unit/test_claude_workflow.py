@@ -24,6 +24,10 @@ class ClaudeWorkflowTests(unittest.TestCase):
         self.assertIn("actions: read", workflow)
         self.assertIn("draft: true", workflow)
         self.assertIn("branch.startsWith('claude/')", workflow)
+        self.assertIn("Check Claude API credential", workflow)
+        self.assertIn('if [[ -z "$ANTHROPIC_API_KEY" ]]', workflow)
+        self.assertIn("github-token: ${{ github.token }}", workflow)
+        self.assertNotIn("github-token: ${{ steps.claude.outputs.github_token }}", workflow)
         self.assertNotIn("pull_request_target:", workflow)
 
 

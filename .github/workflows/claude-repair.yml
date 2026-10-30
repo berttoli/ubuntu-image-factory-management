@@ -56,6 +56,14 @@ jobs:
             core.setOutput('number', String(issue.number));
             core.setOutput('title', issue.title);
             core.setOutput('body', issue.body);
+      - name: Check Claude API credential
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [[ -z "$ANTHROPIC_API_KEY" ]]; then
+            echo 'ERROR: configure the ANTHROPIC_API_KEY repository Actions secret before dispatching Claude repair.' >&2
+            exit 1
+          fi
       - name: Run Claude repair agent
         id: claude
         uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6  # v1
@@ -85,7 +93,7 @@ jobs:
           CLAUDE_BRANCH: ${{ steps.claude.outputs.branch_name }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
         with:
-          github-token: ${{ steps.claude.outputs.github_token }}
+          github-token: ${{ github.token }}
           script: |
             const branch = process.env.CLAUDE_BRANCH;
             if (!branch.startsWith('claude/')) {

@@ -10,7 +10,10 @@ The router ignores successful runs, Claude-authored runs, Claude branches, and f
 2. Add an Anthropic API key as the repository Actions secret `ANTHROPIC_API_KEY`. The key is used only by `claude-repair`; never store it in repository files or workflow inputs. An OAuth token or workload identity federation can be configured instead by changing the Claude action inputs.
 3. Keep the workflow's `id-token: write`, `actions: read`, `contents: write`, `issues: write`, and `pull-requests: write` permissions. The router separately needs `contents: write` to dispatch Claude and `issues: write` to manage repair issues.
 4. Require the validation checks and human review for merging Claude draft PRs. Do not enable auto-merge.
-5. Run a manual smoke test by dispatching `claude-repair` with an open router-created issue number. Confirm the action reads the task, creates a `claude/` branch, opens a draft PR, and CI runs on that PR.
+5. In repository **Settings → Actions → General → Workflow permissions**, enable **Allow GitHub Actions to create and approve pull requests** if the workflow token will open draft PRs. This setting permits PR creation; the workflow still requests `pull-requests: write` explicitly and never approves a PR.
+6. Run a manual smoke test by dispatching `claude-repair` with an open router-created issue number. Confirm the action reads the task, creates a `claude/` branch, opens a draft PR, and CI runs on that PR.
+
+The workflow checks `ANTHROPIC_API_KEY` before invoking Claude so a missing credential fails with a specific setup error. The draft PR step uses the workflow's GitHub token; the Claude action may revoke its own app token during cleanup. If Claude still fails after the credential check, inspect that run's action logs and GitHub App permissions before retrying. Public job metadata alone does not identify an API, billing, permission, or action-internal failure.
 
 No Copilot entitlement or `COPILOT_ASSIGNMENT_TOKEN` is used. Claude API usage is billed by Anthropic under the configured credential.
 
