@@ -48,11 +48,12 @@ make build-container RELEASE=26.04 ARCH=amd64
 make security ARTIFACT=build/container
 ```
 
-The CI workflow `test-images.yml` is the canonical boot-test procedure and must be green before stable promotion.
+The CI workflow `test-images.yml` validates source and tool prerequisites. `build-vm.yml` invokes a QEMU serial-log cloud-init smoke test. Neither currently proves SSH access, expected services, firewall policy, or first-boot identity regeneration; the planned week-4 VM acceptance test remains outstanding and is required before stable promotion.
 
 ## Verification log
 
 - 2026-10-30 factory follow-up (branch `fix/monitor-build-readiness`): carried forward the monitor issue-evidence update and added credential-aware VM rebuild dispatch. The security monitor now records a VM credential blocker while still requesting OCI candidates. Claude repair now checks for `ANTHROPIC_API_KEY` before invoking the action and uses the workflow GitHub token for its later draft-PR step; the action's own app token may be revoked during cleanup. Local `make audit`, `make validate`, `make test` (32 tests), Ruby syntax, and diff checks passed. Remote monitor, Claude, and VM boot behavior remain unverified until the branch is run in Actions; missing build secrets still block scheduled VM/bare-metal workflows.
+- VM artifact selection is now limited to the matching Packer output directory and requires exactly one disk. This prevents a RAW conversion from silently selecting an earlier QCOW2 artifact in the shared build tree. A full Packer build was not executable on this macOS host; script syntax and workflow contract checks are local evidence only.
 - Next repository design is recorded at `docs/portfolio/agentic-platform-engineering-plan.md`. It is a proposal only. Repository creation remains gated on reviewed Ubuntu 26.04 VM boot/security evidence.
 
 - 2026-10-30 Actions/issue review: [Dependabot PR #31](https://github.com/berttoli/ubuntu-image-factory-management/pull/31) validation passed; [PR #32](https://github.com/berttoli/ubuntu-image-factory-management/pull/32) validation failed in `make test` after changing only the pinned Claude action SHA. The old test required the superseded SHA; it now verifies a full 40-character pin. The fixture-only artifact-name test was removed because it exercised no repository behavior. The new assertion was checked against PR #32's actual workflow file. `make audit`, `make validate`, `make test` (27 tests), and `git diff --check` passed locally.

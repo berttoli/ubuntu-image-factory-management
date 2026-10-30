@@ -43,8 +43,11 @@ packer build -color=false \
   -var "accelerator=$( [[ -e /dev/kvm ]] && echo kvm || echo none )" \
   -var "ssh_private_key_file=$AUTOINSTALL_SSH_PRIVATE_KEY_FILE" \
   -var "profile=$profile" .
-source_image="$(find "$output_dir" -type f -size +1M -not -name '*.log' -print -quit)"
-[[ -n "$source_image" ]] || { echo "ERROR: Packer completed without a disk artifact" >&2; exit 1; }
+packer_output_dir="$output_dir/ubuntu-${release}-${arch}-${format}"
+[[ -d "$packer_output_dir" ]] || { echo "ERROR: Packer output directory is missing: $packer_output_dir" >&2; exit 1; }
+mapfile -d '' -t source_images < <(find "$packer_output_dir" -maxdepth 1 -type f -size +1M -not -name '*.log' -print0)
+((${#source_images[@]} == 1)) || { echo "ERROR: expected one Packer disk in $packer_output_dir, found ${#source_images[@]}" >&2; exit 1; }
+source_image="${source_images[0]}"
 target_image="$output_dir/ubuntu-${release}-${arch}.${format}"
 qemu-img convert -O "$format" "$source_image" "$target_image"
 sha256sum "$target_image" > "$target_image.sha256"

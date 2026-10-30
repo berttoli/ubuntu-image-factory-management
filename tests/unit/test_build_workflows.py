@@ -12,6 +12,9 @@ class BuildWorkflowTests(unittest.TestCase):
         script = (ROOT / "scripts/build/build-vm.sh").read_text(encoding="utf-8")
         workflow = (ROOT / ".github/workflows/build-vm.yml").read_text(encoding="utf-8")
         self.assertIn('target_image="$output_dir/ubuntu-${release}-${arch}.${format}"', script)
+        self.assertIn('packer_output_dir="$output_dir/ubuntu-${release}-${arch}-${format}"', script)
+        self.assertIn('find "$packer_output_dir" -maxdepth 1', script)
+        self.assertNotIn('find "$output_dir" -type f', script)
         self.assertIn('IMAGE="build/vm/ubuntu-${RELEASE}-${ARCH}.qcow2"', workflow)
 
     def test_credential_gated_workflows_check_required_inputs(self) -> None:
