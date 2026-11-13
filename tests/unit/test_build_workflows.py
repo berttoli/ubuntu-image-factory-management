@@ -129,6 +129,18 @@ class BuildWorkflowTests(unittest.TestCase):
         self.assertNotIn("AUTOINSTALL_STORAGE_MATCH", iso_builder)
         self.assertNotIn("AUTOINSTALL_BUILD_SUDO", iso_builder)
 
+    def test_security_monitor_requests_vm_rebuilds_without_secrets(self) -> None:
+        workflow = (ROOT / ".github/workflows/security-monitor.yml").read_text(encoding="utf-8")
+        self.assertIn("gh workflow run build-vm.yml", workflow)
+        self.assertNotIn("secrets.AUTOINSTALL", workflow)
+
+    def test_vm_image_is_trimmed_and_compressed(self) -> None:
+        packer = (ROOT / "packer/ubuntu.pkr.hcl").read_text(encoding="utf-8")
+        self.assertIn('disk_discard       = "unmap"', packer)
+        self.assertIn('disk_detect_zeroes = "unmap"', packer)
+        self.assertIn("fstrim", (ROOT / "scripts/build/prepare-template.sh").read_text(encoding="utf-8"))
+        self.assertIn("qemu-img convert -c -O qcow2", (ROOT / "scripts/build/build-vm.sh").read_text(encoding="utf-8"))
+
     def test_image_validation_installs_and_scopes_prerequisites(self) -> None:
         workflow = (ROOT / ".github/workflows/test-images.yml").read_text(encoding="utf-8")
         self.assertIn("sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-utils", workflow)
