@@ -17,7 +17,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ruby shellcheck
-          python3 -m pip install --disable-pip-version-check yamllint ansible-lint
+          python3 -m pip install --disable-pip-version-check -r requirements.txt
       - name: Validate repository
         run: make validate
       - name: Unit and integration tests
