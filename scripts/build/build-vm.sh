@@ -61,6 +61,14 @@ checksum_url="$iso_base/SHA256SUMS"
 checksum="$(curl --fail --location --silent --show-error "$checksum_url" | awk -v f="$iso_name" '$2 == f || $2 == "*"f {print $1; exit}')"
 [[ "$checksum" =~ ^[a-fA-F0-9]{64}$ ]] || { echo "ERROR: could not resolve trusted checksum for $iso_name from $checksum_url" >&2; exit 1; }
 
+log_dir="$ROOT_DIR/build/logs"
+mkdir -p "$log_dir"
+serial_log="$log_dir/packer-serial-${release}-${arch}.log"
+: > "$serial_log"
+export PACKER_LOG="${PACKER_LOG:-1}"
+export PACKER_LOG_PATH="${PACKER_LOG_PATH:-$log_dir/packer-${release}-${arch}.log}"
+echo "accelerator: $( [[ -w /dev/kvm ]] && echo kvm || echo 'none (software emulation; expect a very slow install)' )"
+
 cd "$ROOT_DIR/packer"
 packer init -upgrade=false .
 packer build -color=false \
@@ -68,6 +76,7 @@ packer build -color=false \
   -var "iso_url=$iso_base/$iso_name" -var "iso_checksum=sha256:$checksum" \
   -var "output_directory=$output_dir" -var "desired_format=$format" \
   -var "accelerator=$( [[ -w /dev/kvm ]] && echo kvm || echo none )" \
+  -var "serial_log=$serial_log" \
   -var "seal_credentials=$( [[ "${AUTOINSTALL_SEAL_CREDENTIALS:-0}" == 1 ]] && echo true || echo false )" \
   -var "ssh_private_key_file=$AUTOINSTALL_SSH_PRIVATE_KEY_FILE" \
   -var "profile=$profile" .
