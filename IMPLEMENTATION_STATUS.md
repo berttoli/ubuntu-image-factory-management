@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-10-30
+Updated: 2026-11-12
 
 ## Current state
 
@@ -52,6 +52,8 @@ The CI workflow `test-images.yml` validates source and tool prerequisites. `buil
 
 ## Verification log
 
+- 2026-11-12 dependency maintenance repair: the latest [pip Dependabot run](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/43169050657) fails with `dependency_file_not_found` because its root pip target has no manifest. Added `requirements.txt` for the CI validators and made validation install it, retaining both linters and the existing tests/security checks. Direct pins match the versions installed by the [successful main validation run](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/43246999436): ansible-lint 26.11.0 and yamllint 1.38.0. This affects CI dependency inputs only, not image production or publication. The new configuration regression failed before the fix and passed after it; local `make audit`, `make validate`, `make test` (33 tests), and `git diff --check` passed. Local yamllint, ShellCheck, Packer, and Ansible lint execution remain deferred to CI/tool-equipped hosts; the next Dependabot updater run remains unverified.
+- 2026-11-12 external blockers: [scheduled VM](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/42583595246) and [bare-metal](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/42587509784) builds fail their required installer credential checks; [Claude repair](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/43169170103) fails its `ANTHROPIC_API_KEY` preflight. These require operator-supplied secrets. No credentials, credential checks, build gates, or release settings were changed.
 - 2026-10-30 factory follow-up (branch `fix/monitor-build-readiness`): carried forward the monitor issue-evidence update and added credential-aware VM rebuild dispatch. The security monitor now records a VM credential blocker while still requesting OCI candidates. Claude repair now checks for `ANTHROPIC_API_KEY` before invoking the action and uses the workflow GitHub token for its later draft-PR step; the action's own app token may be revoked during cleanup. Local `make audit`, `make validate`, `make test` (32 tests), Ruby syntax, and diff checks passed. Remote monitor, Claude, and VM boot behavior remain unverified until the branch is run in Actions; missing build secrets still block scheduled VM/bare-metal workflows.
 - VM artifact selection is now limited to the matching Packer output directory and requires exactly one disk. This prevents a RAW conversion from silently selecting an earlier QCOW2 artifact in the shared build tree. A full Packer build was not executable on this macOS host; script syntax and workflow contract checks are local evidence only.
 - Next repository design is recorded at `docs/portfolio/agentic-platform-engineering-plan.md`. It is a proposal only. Repository creation remains gated on reviewed Ubuntu 26.04 VM boot/security evidence.
