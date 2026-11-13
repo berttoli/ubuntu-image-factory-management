@@ -35,7 +35,6 @@ class CommandEvidence:
 
 REQUIRED_PATHS: tuple[str, ...] = (
     "AGENTS.md",
-    "CLAUDE.md",
     "configs/factory.yaml",
     "configs/security/baseline.yaml",
     "schemas/factory.schema.json",
@@ -59,8 +58,6 @@ REQUIRED_WORKFLOWS: tuple[str, ...] = (
     "test-images.yml",
     "release.yml",
     "dependency-maintenance.yml",
-    "agent-repair-router.yml",
-    "claude-repair.yml",
 )
 
 REQUIRED_TARGETS: tuple[str, ...] = (

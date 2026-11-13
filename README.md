@@ -51,4 +51,4 @@ See `docs/architecture/overview.md`, `docs/architecture/system.md`, `docs/securi
 
 `make audit` produces ignored JSON and Markdown evidence under `artifacts/audit/`. It checks the repository contract and executes `make validate` and `make test`; missing target-specific tools remain explicit blockers rather than being reported as successful builds.
 
-The [repair agent setup](docs/operations/agent-repair.md) explains how Dependabot PRs and eligible workflow failures are routed to Claude for investigation and draft fix PRs.
+Maintainers review Dependabot pull requests and failed workflow runs, then open focused fixes through the normal validation and review process. See [maintenance and recovery](docs/operations/maintenance.md) for monitor triage and build prerequisites.
