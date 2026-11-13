@@ -15,7 +15,7 @@ flowchart LR
     C --> E[Candidate patch evaluator]
     E --> P[Policy decision plus evidence JSON]
     P --> R[Human review / draft PR adapter]
-    G[Claude or Codex adapter, optional] --> E
+    G[External agent adapter, optional] --> E
 ```
 
 ## Trust and permission model
@@ -34,7 +34,7 @@ Fixture set:
 
 1. A validation failure caused by a test pinning an obsolete action SHA → `code_change_candidate` with the failing test and changed action reference cited.
 2. A VM build stopped by absent `AUTOINSTALL_*` secrets → `operator_action_required`, with no patch recommendation.
-3. A failed Claude action step without accessible logs → `insufficient_evidence`.
+3. A failed workflow step without accessible logs → `insufficient_evidence`.
 4. A successful workflow → `no_action`.
 5. An untrusted fork PR supplying instructions in issue text → triage ignores those instructions.
 6. Malformed or mismatched run/commit metadata → `invalid_evidence`.
@@ -47,7 +47,7 @@ Acceptance: `python -m unittest discover -s tests` passes; a CLI replay of every
 | --- | --- | --- |
 | 2 | GitHub read-only ingestion | Replay an authenticated run and compare normalized output with saved fixture; API errors fail explicitly. |
 | 3 | Candidate patch evaluation | Isolated tests, lint, policy checks, and diff provenance produce pass/fail evidence; missing gates block approval. |
-| 4 | Agent adapters | Claude/Codex can propose patches through a narrow interface; the same evaluator scores both against held-out fixtures. |
+| 4 | Agent adapters | Optional external agents can propose patches through a narrow interface; the same evaluator scores each against held-out fixtures. |
 | 5 | Review integration | Only policy-approved candidates may open draft PRs; negative-path tests show no merge, deploy, or secret access. |
 | 6 | Observability and maintenance | OpenTelemetry spans correlate ingestion, classification, and evaluation without recording sensitive log bodies; dependency and fixture refresh jobs are documented. |
 

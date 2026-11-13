@@ -2,8 +2,7 @@
 
 ## Unreleased
 
-- Replaced Copilot repair assignment with a Claude Code Action workflow, idempotent repository dispatch, and draft PR creation.
-- Filtered fork-originated repair runs and added Claude workflow contract tests and setup documentation.
+- Removed Claude repair automation, its event router, and the associated setup and agent instructions. Maintainers review dependency updates and workflow failures through the normal PR process.
 - Initial Ubuntu Image Factory implementation.
 - Added Ubuntu 26.04.1 primary and 24.04.5 compatibility release tracks.
 - Added configuration validation, hardening policy, Packer/QEMU, autoinstall, OCI, SBOM, provenance, signing, and GitHub Actions scaffolding.
