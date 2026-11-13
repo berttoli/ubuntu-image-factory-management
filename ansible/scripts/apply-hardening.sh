@@ -30,9 +30,10 @@ Unattended-Upgrade::Remove-Unused-Dependencies "true";
 Unattended-Upgrade::Automatic-Reboot "false";
 EOF
 if command -v ufw >/dev/null 2>&1; then
-  ufw --force default deny incoming
-  ufw --force default allow outgoing
-  ufw --force allow ssh
+  # --force is only meaningful for commands that prompt; ufw rejects it on "allow".
+  ufw default deny incoming
+  ufw default allow outgoing
+  ufw allow ssh
   ufw --force enable
 fi
 sysctl --system >/dev/null
