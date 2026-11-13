@@ -15,6 +15,19 @@ on:
         options: [amd64, arm64]
   schedule:
     - cron: "23 1 * * 1"
+  pull_request:
+    paths:
+      - packer/**
+      - autoinstall/**
+      - ansible/**
+      - scripts/build/**
+      - scripts/test/**
+      - scripts/autoinstall/**
+      - .github/workflows/build-vm.yml
+
+concurrency:
+  group: build-vm-${{ github.ref }}-${{ inputs.release || 'default' }}-${{ inputs.architecture || 'default' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -22,36 +35,58 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     env:
       RELEASE: ${{ inputs.release || '26.04' }}
       ARCH: ${{ inputs.architecture || 'amd64' }}
-      AUTOINSTALL_PASSWORD_HASH: ${{ secrets.AUTOINSTALL_PASSWORD_HASH }}
-      AUTOINSTALL_SSH_PUBLIC_KEY: ${{ secrets.AUTOINSTALL_SSH_PUBLIC_KEY }}
-      AUTOINSTALL_SSH_PRIVATE_KEY: ${{ secrets.AUTOINSTALL_SSH_PRIVATE_KEY }}
+      # Throwaway credentials are generated for each build and removed from the image
+      # before it is captured, so no repository secret is needed and none ends up in
+      # a published image.
+      AUTOINSTALL_EPHEMERAL_CREDENTIALS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-packer@v3
         with:
           version: latest
-      - name: Materialize ephemeral SSH key file
-        run: |
-          if [[ -z "$AUTOINSTALL_PASSWORD_HASH" || -z "$AUTOINSTALL_SSH_PUBLIC_KEY" || -z "$AUTOINSTALL_SSH_PRIVATE_KEY" ]]; then
-            echo 'ERROR: configure AUTOINSTALL_PASSWORD_HASH, AUTOINSTALL_SSH_PUBLIC_KEY, and AUTOINSTALL_SSH_PRIVATE_KEY repository secrets before building VMs' >&2
-            exit 1
-          fi
-          umask 077
-          printf '%s\n' "$AUTOINSTALL_SSH_PRIVATE_KEY" > "$RUNNER_TEMP/factory_id_ed25519"
-          echo "AUTOINSTALL_SSH_PRIVATE_KEY_FILE=$RUNNER_TEMP/factory_id_ed25519" >> "$GITHUB_ENV"
       - name: Install QEMU and ISO dependencies
-        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-efi-aarch64 qemu-utils xorriso p7zip-full
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-efi-aarch64 qemu-utils xorriso p7zip-full cloud-image-utils openssl zstd
+      - name: Enable KVM for the runner user
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
       - name: Build QCOW2
         run: make build-vm FORMAT=qcow2
       - name: Build RAW
         run: make build-vm FORMAT=raw
-      - name: Boot test
+      - name: Acceptance test
+        env:
+          TEST_EVIDENCE_DIR: ${{ runner.temp }}/vm-evidence
         run: make test-vm IMAGE="build/vm/ubuntu-${RELEASE}-${ARCH}.qcow2"
+      - name: Compress RAW for upload
+        run: |
+          zstd -q -T0 --rm "build/vm/ubuntu-${RELEASE}-${ARCH}.raw"
+          ls -la build/vm
+      - name: Collect build logs
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/vm-evidence/build-logs"
+          cp -r build/logs/. "$RUNNER_TEMP/vm-evidence/build-logs/" 2>/dev/null || true
+          # The serial log can hold the rendered seed echoed by the installer; drop the
+          # throwaway password hash and public key lines before publishing it.
+          sed -i -E '/\$6\$|ssh-ed25519 /d' "$RUNNER_TEMP"/vm-evidence/build-logs/* 2>/dev/null || true
+          tail -n 40 "$RUNNER_TEMP"/vm-evidence/build-logs/packer-serial-*.log 2>/dev/null || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: vm-evidence-${{ env.RELEASE }}-${{ env.ARCH }}
+          path: ${{ runner.temp }}/vm-evidence
+          retention-days: 14
       - uses: actions/upload-artifact@v7
         with:
           name: vm-${{ env.RELEASE }}-${{ env.ARCH }}
-          path: build/vm
+          path: |
+            build/vm
+            !build/vm/**/*.log
           retention-days: 14

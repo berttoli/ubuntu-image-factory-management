@@ -24,13 +24,33 @@ def main() -> None:
 
     password_hash = required_env("AUTOINSTALL_PASSWORD_HASH")
     ssh_key = required_env("AUTOINSTALL_SSH_PUBLIC_KEY")
-    disk_serial = required_env("AUTOINSTALL_TARGET_DISK_SERIAL")
+    # Physical media must name its disk by serial. A VM build creates its own machine
+    # with exactly one disk, so it may ask for that disk without knowing a serial.
+    storage_match = os.environ.get("AUTOINSTALL_STORAGE_MATCH", "serial")
+    if storage_match not in ("serial", "single-disk"):
+        raise SystemExit("ERROR: AUTOINSTALL_STORAGE_MATCH must be serial or single-disk")
+    disk_serial = required_env("AUTOINSTALL_TARGET_DISK_SERIAL") if storage_match == "serial" else "unused-single-disk"
+    build_sudo = os.environ.get("AUTOINSTALL_BUILD_SUDO", "0") == "1"
     hostname = os.environ.get("AUTOINSTALL_HOSTNAME", f"ubuntu-{args.release.replace('.', '-')}")
     if any(value in ("__PASSWORD_HASH__", "__SSH_PUBLIC_KEY__", "__DISK_SERIAL__") for value in (password_hash, ssh_key, disk_serial)):
         raise SystemExit("ERROR: template placeholders are not valid deployment inputs")
 
     template = Path(__file__).resolve().parents[2] / "autoinstall" / "templates" / "user-data.yaml.tmpl"
     content = template.read_text(encoding="utf-8")
+    serial_line = "        serial: '__DISK_SERIAL__'\n"
+    if serial_line not in content or "__BUILD_LATE_COMMANDS__\n" not in content:
+        raise SystemExit("ERROR: autoinstall template is missing an expected marker")
+    if storage_match == "single-disk":
+        content = content.replace(serial_line, "        size: largest\n")
+    # Packer provisions over SSH with no terminal, so the build user needs sudo without
+    # a password while the image is built. The VM build removes this file again before
+    # the image is captured; installer media never gets it.
+    build_commands = (
+        "    - curtin in-target --target=/target -- bash -c "
+        "'printf \"%s\\n\" \"factory ALL=(ALL) NOPASSWD:ALL\" > /etc/sudoers.d/90-factory-build "
+        "&& chmod 0440 /etc/sudoers.d/90-factory-build'\n"
+    ) if build_sudo else ""
+    content = content.replace("__BUILD_LATE_COMMANDS__\n", build_commands)
     replacements = {
         "__RELEASE__": args.release,
         "__ARCH__": args.arch,

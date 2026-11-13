@@ -70,15 +70,64 @@ class BuildWorkflowTests(unittest.TestCase):
         self.assertNotIn('find "$output_dir" -type f', script)
         self.assertIn('IMAGE="build/vm/ubuntu-${RELEASE}-${ARCH}.qcow2"', workflow)
 
-    def test_credential_gated_workflows_check_required_inputs(self) -> None:
-        for workflow_name, required in (
-            ("build-vm.yml", "AUTOINSTALL_SSH_PRIVATE_KEY"),
-            ("build-baremetal.yml", "AUTOINSTALL_SSH_PUBLIC_KEY"),
-        ):
-            with self.subTest(workflow=workflow_name):
-                workflow = (ROOT / ".github/workflows" / workflow_name).read_text(encoding="utf-8")
-                self.assertIn("Check required installer inputs" if workflow_name == "build-baremetal.yml" else "Materialize ephemeral SSH key file", workflow)
-                self.assertIn(f'-z "${required}"', workflow)
+    def test_installer_media_workflow_checks_required_inputs(self) -> None:
+        workflow = (ROOT / ".github/workflows/build-baremetal.yml").read_text(encoding="utf-8")
+        self.assertIn("Check required installer inputs", workflow)
+        self.assertIn('-z "$AUTOINSTALL_SSH_PUBLIC_KEY"', workflow)
+
+    def test_vm_workflow_uses_throwaway_credentials_not_secrets(self) -> None:
+        workflow = (ROOT / ".github/workflows/build-vm.yml").read_text(encoding="utf-8")
+        self.assertIn('AUTOINSTALL_EPHEMERAL_CREDENTIALS: "1"', workflow)
+        self.assertNotIn("secrets.", workflow)
+        self.assertIn("Acceptance test", workflow)
+
+    def test_throwaway_credentials_are_sealed_out_of_the_image(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = subprocess.check_output(
+                [str(ROOT / "scripts/build/ephemeral-credentials.sh"), directory], text=True,
+            )
+            self.assertIn("export AUTOINSTALL_SEAL_CREDENTIALS=1", output)
+            self.assertIn("export AUTOINSTALL_PASSWORD_HASH='$6$", output)
+            key = Path(directory) / "factory-build-ed25519"
+            self.assertEqual(key.stat().st_mode & 0o077, 0)
+            self.assertNotIn(key.read_text(encoding="utf-8").splitlines()[1], output)
+        packer = (ROOT / "packer/ubuntu.pkr.hcl").read_text(encoding="utf-8")
+        for removed in ("/etc/sudoers.d/90-factory-build", "/home/factory/.ssh/authorized_keys", "passwd -l factory"):
+            self.assertIn(removed, packer)
+        self.assertIn("shutdown_command = local.shutdown", packer)
+
+    def test_only_vm_builds_may_skip_the_disk_serial(self) -> None:
+        def render(extra):
+            with tempfile.TemporaryDirectory() as directory:
+                env = {
+                    "PATH": os.environ["PATH"],
+                    "AUTOINSTALL_PASSWORD_HASH": "$6$example$examplehash",
+                    "AUTOINSTALL_SSH_PUBLIC_KEY": "ssh-ed25519 AAAAexample test",
+                    **extra,
+                }
+                result = subprocess.run(
+                    ["python3", str(ROOT / "scripts/autoinstall/render.py"), "--release", "26.04",
+                     "--arch", "amd64", "--profile", "hardened", "--output", directory],
+                    env=env, capture_output=True, text=True,
+                )
+                seed = Path(directory) / "user-data"
+                return result.returncode, seed.read_text(encoding="utf-8") if seed.exists() else ""
+
+        code, _ = render({})
+        self.assertNotEqual(code, 0, "installer media must not render without a disk serial")
+        code, seed = render({"AUTOINSTALL_TARGET_DISK_SERIAL": "SERIAL123"})
+        self.assertEqual(code, 0)
+        self.assertIn("serial: 'SERIAL123'", seed)
+        self.assertNotIn("NOPASSWD", seed)
+        self.assertNotIn("__", seed)
+        code, seed = render({"AUTOINSTALL_STORAGE_MATCH": "single-disk", "AUTOINSTALL_BUILD_SUDO": "1"})
+        self.assertEqual(code, 0)
+        self.assertIn("size: largest", seed)
+        self.assertNotIn("serial:", seed)
+        self.assertIn("/etc/sudoers.d/90-factory-build", seed)
+        iso_builder = (ROOT / "scripts/build/build-iso.sh").read_text(encoding="utf-8")
+        self.assertNotIn("AUTOINSTALL_STORAGE_MATCH", iso_builder)
+        self.assertNotIn("AUTOINSTALL_BUILD_SUDO", iso_builder)
 
     def test_image_validation_installs_and_scopes_prerequisites(self) -> None:
         workflow = (ROOT / ".github/workflows/test-images.yml").read_text(encoding="utf-8")
