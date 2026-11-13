@@ -15,12 +15,39 @@ command -v packer >/dev/null 2>&1 || { echo "ERROR: packer is required for VM bu
 command -v qemu-img >/dev/null 2>&1 || { echo "ERROR: qemu-img is required for VM builds" >&2; exit 1; }
 
 mkdir -p "$output_dir" "$ROOT_DIR/build/autoinstall/$release-$arch"
+target_image="$output_dir/ubuntu-${release}-${arch}.${format}"
+qcow2_image="$output_dir/ubuntu-${release}-${arch}.qcow2"
+
+finish_artifact() {
+  sha256sum "$target_image" > "$target_image.sha256"
+  python3 "$ROOT_DIR/scripts/release/generate-metadata.py" --artifact "$target_image" --release "$release" --architecture "$arch" --type "$format" --output "$target_image.metadata.json"
+  echo "VM build complete: $output_dir"
+}
+
+# RAW is the same disk in another container format. When this release's QCOW2 already
+# exists, convert it instead of installing Ubuntu a second time.
+if [[ "$format" == raw && -f "$qcow2_image" && "${VM_BUILD_REUSE_QCOW2:-1}" == 1 ]]; then
+  qemu-img convert -O raw "$qcow2_image" "$target_image"
+  finish_artifact
+  exit 0
+fi
+
+# Opt-in throwaway credentials: generated for this build, removed from the image before
+# it is captured, and deleted from the host when the script exits.
+if [[ "${AUTOINSTALL_EPHEMERAL_CREDENTIALS:-0}" == 1 ]]; then
+  credential_dir="$(mktemp -d)"
+  trap 'rm -rf "$credential_dir"' EXIT
+  eval "$("$ROOT_DIR/scripts/build/ephemeral-credentials.sh" "$credential_dir")"
+fi
 if [[ -z "${AUTOINSTALL_PASSWORD_HASH:-}" || -z "${AUTOINSTALL_SSH_PUBLIC_KEY:-}" || -z "${AUTOINSTALL_SSH_PRIVATE_KEY_FILE:-}" ]]; then
-  echo "ERROR: AUTOINSTALL_PASSWORD_HASH, AUTOINSTALL_SSH_PUBLIC_KEY, and AUTOINSTALL_SSH_PRIVATE_KEY_FILE are required; no credentials are generated or embedded automatically" >&2
+  echo "ERROR: AUTOINSTALL_PASSWORD_HASH, AUTOINSTALL_SSH_PUBLIC_KEY, and AUTOINSTALL_SSH_PRIVATE_KEY_FILE are required, or set AUTOINSTALL_EPHEMERAL_CREDENTIALS=1 to use throwaway build credentials that are removed from the image" >&2
   exit 2
 fi
 [[ -f "$AUTOINSTALL_SSH_PRIVATE_KEY_FILE" ]] || { echo "ERROR: private key file not found: $AUTOINSTALL_SSH_PRIVATE_KEY_FILE" >&2; exit 2; }
-export AUTOINSTALL_TARGET_DISK_SERIAL="${AUTOINSTALL_TARGET_DISK_SERIAL:-FACTORY-QEMU-DISK}"
+# The build creates its own single-disk machine, so the installer takes that disk. The
+# build user gets passwordless sudo for provisioning only.
+export AUTOINSTALL_STORAGE_MATCH=single-disk
+export AUTOINSTALL_BUILD_SUDO=1
 python3 "$ROOT_DIR/scripts/autoinstall/render.py" --release "$release" --arch "$arch" --profile "$profile" --output "$ROOT_DIR/build/autoinstall/$release-$arch"
 
 iso_version="$([[ "$release" == 26.04 ]] && echo 26.04.1 || echo 24.04.5)"
@@ -40,7 +67,8 @@ packer build -color=false \
   -var "release=$release" -var "architecture=$arch" \
   -var "iso_url=$iso_base/$iso_name" -var "iso_checksum=sha256:$checksum" \
   -var "output_directory=$output_dir" -var "desired_format=$format" \
-  -var "accelerator=$( [[ -e /dev/kvm ]] && echo kvm || echo none )" \
+  -var "accelerator=$( [[ -w /dev/kvm ]] && echo kvm || echo none )" \
+  -var "seal_credentials=$( [[ "${AUTOINSTALL_SEAL_CREDENTIALS:-0}" == 1 ]] && echo true || echo false )" \
   -var "ssh_private_key_file=$AUTOINSTALL_SSH_PRIVATE_KEY_FILE" \
   -var "profile=$profile" .
 packer_output_dir="$output_dir/ubuntu-${release}-${arch}-${format}"
@@ -48,8 +76,6 @@ packer_output_dir="$output_dir/ubuntu-${release}-${arch}-${format}"
 mapfile -d '' -t source_images < <(find "$packer_output_dir" -maxdepth 1 -type f -size +1M -not -name '*.log' -print0)
 ((${#source_images[@]} == 1)) || { echo "ERROR: expected one Packer disk in $packer_output_dir, found ${#source_images[@]}" >&2; exit 1; }
 source_image="${source_images[0]}"
-target_image="$output_dir/ubuntu-${release}-${arch}.${format}"
 qemu-img convert -O "$format" "$source_image" "$target_image"
-sha256sum "$target_image" > "$target_image.sha256"
-python3 "$ROOT_DIR/scripts/release/generate-metadata.py" --artifact "$target_image" --release "$release" --architecture "$arch" --type "$format" --output "$target_image.metadata.json"
-echo "VM build complete: $output_dir"
+rm -rf "$packer_output_dir"
+finish_artifact

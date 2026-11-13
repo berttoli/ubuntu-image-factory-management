@@ -40,9 +40,19 @@ variable "ssh_private_key_file" {
   type = string
 }
 
+variable "seal_credentials" {
+  type        = bool
+  default     = false
+  description = "Remove the build key, lock the build password and drop build-time sudo before the image is captured."
+}
+
 locals {
   seed_dir = "${path.root}/../build/autoinstall/${var.release}-${var.architecture}"
   name     = "ubuntu-${var.release}-${var.architecture}-${var.desired_format}"
+  # Sealing happens in the same command that powers the machine off, because it removes
+  # the access Packer is using.
+  seal     = "rm -f /etc/sudoers.d/90-factory-build /home/factory/.ssh/authorized_keys; passwd -l factory >/dev/null; "
+  shutdown = "sudo sh -c '${var.seal_credentials ? local.seal : ""}shutdown -P now'"
 }
 
 source "qemu" "ubuntu" {
@@ -67,7 +77,7 @@ source "qemu" "ubuntu" {
   ] : [
     ["-machine", "q35"],
   ]
-  shutdown_command = "sudo shutdown -P now"
+  shutdown_command = local.shutdown
   ssh_private_key_file = var.ssh_private_key_file
   ssh_timeout      = "30m"
   ssh_username     = "factory"
@@ -90,17 +100,17 @@ build {
   provisioner "shell" {
     inline = [
       "sudo apt-get update",
-      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates unattended-upgrades ufw apparmor auditd qemu-guest-agent",
-      "sudo cloud-init clean --logs --seed",
-      "sudo rm -f /etc/ssh/ssh_host_*",
-      "sudo truncate -s 0 /etc/machine-id",
-      "sudo rm -f /var/lib/dbus/machine-id",
-      "sudo apt-get clean",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates unattended-upgrades ufw apparmor auditd qemu-guest-agent cloud-init",
     ]
   }
 
   provisioner "shell" {
     script = "${path.root}/../ansible/scripts/apply-hardening.sh"
+    execute_command = "sudo -E bash '{{ .Path }}'"
+  }
+
+  provisioner "shell" {
+    script = "${path.root}/../scripts/build/prepare-template.sh"
     execute_command = "sudo -E bash '{{ .Path }}'"
   }
 }

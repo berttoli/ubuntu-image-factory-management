@@ -36,6 +36,7 @@ autoinstall:
     install: false
   updates: security
   late-commands:
+__BUILD_LATE_COMMANDS__
     - curtin in-target --target=/target -- systemctl enable ssh
     - curtin in-target --target=/target -- systemctl enable unattended-upgrades
     - curtin in-target --target=/target -- systemctl enable apparmor
