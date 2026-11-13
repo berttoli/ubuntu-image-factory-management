@@ -1,24 +1,25 @@
 # Implementation status
 
-Updated: 2026-11-12
+Updated: 2026-11-13
 
 ## Current state
 
-This repository was empty at project start. The factory now has a configuration-driven implementation, local validation/tests, target-specific build entry points, GitHub Actions release gates, and a machine-verifiable portfolio audit. Artifact production remains partially unverified until Linux/QEMU/Docker/security-tool execution evidence is captured.
+This repository was empty at project start. The factory now has a configuration-driven implementation, local validation/tests, target-specific build entry points, GitHub Actions release gates, and a machine-verifiable portfolio audit. The amd64 VM path for Ubuntu 26.04 is verified end to end in CI. Bare-metal media, arm64 VMs, the 24.04 VM, and release publication remain unverified.
 
 | Area | Status | Evidence / limitation |
 | --- | --- | --- |
 | Release configuration | Implemented | `configs/factory.yaml`, schema, release overrides |
 | Shared security policy | Implemented | `configs/security/baseline.yaml`, VM provisioning, Ansible role |
-| VM Packer path | Implemented | `packer/`, `scripts/build/build-vm.sh`; requires Linux/QEMU/Packer and AAVMF firmware for arm64 |
-| QCOW2/RAW conversion | Implemented | `qemu-img convert` in VM build script |
+| VM Packer path | Verified for 26.04 amd64 | [build-vm run 43473789507](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/43473789507): install under KVM, provisioning, hardening, sealing and conversion. 24.04 and arm64 use the same path and are not yet verified; arm64 needs AAVMF firmware |
+| QCOW2/RAW conversion | Verified | Same run; RAW is converted from the QCOW2 rather than installed twice |
 | Bare-metal autoinstall | Implemented | Rendered autoinstall templates and ISO builder; requires Ubuntu ISO tooling |
 | OCI build | Implemented | `containers/Dockerfile`, buildx script |
 | SBOM/scanning/signing | Implemented as gated steps | Requires Syft, Trivy, Cosign and CI credentials for publication |
 | CI validation/monitoring/build/release | Implemented | Required workflow files present; upstream monitor validates all configured ISO checksums and runner labels, while security-feed changes request candidate VM and OCI rebuilds |
 | Portfolio baseline and evidence audit | Verified | `make audit`, typed `scripts/audit/repository_audit.py`, JSON/Markdown report, structural audit test |
 | Repair triage | Maintainer-driven | Review Dependabot PRs and Actions failures, then submit focused fixes through validation and review |
-| Local unit tests | Verified | Python standard-library unittest suite; 20 tests pass |
+| VM acceptance test | Verified | `make test-vm`: 17 checks over SSH against the unmodified image (first-boot identity, sshd, firewall, AppArmor, auditd, unattended upgrades, kernel settings, listening ports, no surviving build credential) |
+| Local unit tests | Verified | Python standard-library unittest suite |
 | Local VM boot test | Blocked on host | macOS ARM64 host has no QEMU/Packer installed |
 | Local ISO build/install test | Blocked on host | `xorriso`, ISO tooling, and Linux installer execution unavailable |
 | Local vulnerability scan | Blocked on host | Trivy/Syft not installed; CI installs pinned tools |
@@ -48,9 +49,12 @@ make build-container RELEASE=26.04 ARCH=amd64
 make security ARTIFACT=build/container
 ```
 
-The CI workflow `test-images.yml` validates source and tool prerequisites. `build-vm.yml` invokes a QEMU serial-log cloud-init smoke test. Neither currently proves SSH access, expected services, firewall policy, or first-boot identity regeneration; the planned week-4 VM acceptance test remains outstanding and is required before stable promotion.
+The CI workflow `test-images.yml` validates source and tool prerequisites. `build-vm.yml` builds the image and runs the SSH acceptance test described above on every pull request that touches the VM path, weekly, and when the security feed changes. Stable promotion still requires the same evidence for each release and architecture being promoted, plus a vulnerability scan that inspects the image contents.
 
 ## Verification log
+
+- 2026-11-13 first verified VM build ([PR #42](https://github.com/berttoli/ubuntu-image-factory-management/pull/42), [run 43473789507](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/43473789507)): Ubuntu 26.04.1 amd64 installed under KVM and passed all 17 acceptance checks. VM builds no longer need repository secrets: credentials are generated per build and removed from the image before capture. Getting there exposed four defects that had never been reached: the installer matched a disk serial the Packer VM does not have; the build user had no passwordless sudo for provisioning; the `qemuargs` override dropped KVM acceleration, so the first run installed in software emulation and timed out; and `ufw --force allow ssh` in the hardening script is invalid syntax. The earlier entries below that describe VM builds failing at their credential check are historical.
+- 2026-11-13 follow-up: the security monitor now requests VM candidate rebuilds without checking for secrets, and the image is trimmed and the QCOW2 compressed before release (the first verified QCOW2 was 6.2 GB untrimmed).
 
 - 2026-11-12 container architecture repair: the [successful 24.04 container run](https://github.com/berttoli/ubuntu-image-factory-management/actions/runs/42827576266) installed amd64 packages in its arm64 job and tagged that image `24.04-arm64`. The workflow omitted `ARCH`, so `make` used its amd64 default for both matrix entries. The job now passes its matrix architecture to the builder, and nonpublishing builds inspect the loaded image and fail on an architecture mismatch before generating an SBOM. A behavioral test executes the real Makefile/build script with a Docker stub: arm64 failed before the fix and both architectures pass after it; the workflow's inspection step also rejects a mismatched image. Local `make audit`, `make validate`, `make test` (20 tests), and `git diff --check` passed. Real container builds and CI lint remain to be verified remotely; publication was not attempted.
 - 2026-11-12 Claude integration removal: removed both repair workflows, their dispatcher, dedicated tests, `CLAUDE.md`, and setup documentation. The repository audit now requires only the retained factory workflows. Earlier Claude setup and credential notes below are historical; the repository no longer dispatches Claude repairs. Build, security, monitoring, release, and Dependabot validation remain in place. Local `make audit`, `make validate`, `make test` (19 tests), and `git diff --check` passed. The 14 removed tests exercised only the retired integration. YAML style, ShellCheck, Packer, and Ansible lint execution remain CI-only evidence on this host; the removal has not yet run remotely.

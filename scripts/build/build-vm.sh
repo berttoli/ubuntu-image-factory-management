@@ -85,6 +85,11 @@ packer_output_dir="$output_dir/ubuntu-${release}-${arch}-${format}"
 mapfile -d '' -t source_images < <(find "$packer_output_dir" -maxdepth 1 -type f -size +1M -not -name '*.log' -print0)
 ((${#source_images[@]} == 1)) || { echo "ERROR: expected one Packer disk in $packer_output_dir, found ${#source_images[@]}" >&2; exit 1; }
 source_image="${source_images[0]}"
-qemu-img convert -O "$format" "$source_image" "$target_image"
+if [[ "$format" == qcow2 ]]; then
+  # Compressed QCOW2 is read transparently by QEMU and is much smaller to store and ship.
+  qemu-img convert -c -O qcow2 "$source_image" "$target_image"
+else
+  qemu-img convert -O "$format" "$source_image" "$target_image"
+fi
 rm -rf "$packer_output_dir"
 finish_artifact

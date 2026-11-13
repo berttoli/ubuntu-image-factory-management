@@ -35,3 +35,10 @@ truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id
 apt-get clean
 rm -rf /var/lib/apt/lists/*
+journalctl --rotate >/dev/null 2>&1 || true
+journalctl --vacuum-time=1s >/dev/null 2>&1 || true
+
+# Hand every freed block back to the host so the image is not padded with the
+# installer's and the package manager's deleted files.
+sync
+fstrim --all --verbose || echo "NOTICE: fstrim unavailable; the image will be larger than necessary"

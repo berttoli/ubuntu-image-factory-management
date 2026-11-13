@@ -47,7 +47,8 @@ class MonitorIssueTests(unittest.TestCase):
         self.assertIn("Ubuntu 24.04 (noble)", changed)
         self.assertIn("Ubuntu 26.04 (resolute)", changed)
         self.assertIn("VM (amd64) and container", changed)
-        self.assertIn("VM rebuilds were deferred", blocked)
+        self.assertIn("VM rebuilds were not requested", blocked)
+        self.assertNotIn("secret", blocked.lower())
         self.assertIn("did not dispatch candidate rebuilds", refreshed)
         with self.assertRaisesRegex(ValueError, "feed is unchanged"):
             security_report.render(checksums, changed=False, vm_requested=True)

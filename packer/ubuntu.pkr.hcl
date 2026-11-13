@@ -71,6 +71,9 @@ source "qemu" "ubuntu" {
   cpus             = 2
   disk_compression = true
   disk_size        = "12G"
+  # Let the guest hand freed blocks back, so the captured image holds only live data.
+  disk_discard       = "unmap"
+  disk_detect_zeroes = "unmap"
   format           = "qcow2"
   headless         = true
   http_directory   = local.seed_dir

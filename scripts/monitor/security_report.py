@@ -41,8 +41,8 @@ def render(checksums: str, changed: bool, vm_requested: bool = False) -> str:
         rebuild_status = "Candidate VM (amd64) and container (amd64/arm64) rebuilds were requested for both releases."
     else:
         rebuild_status = (
-            "Container candidate rebuilds were requested for both releases; VM rebuilds were deferred because "
-            "required AUTOINSTALL repository secrets are missing. Configure those secrets and run build-vm for each release."
+            "Container candidate rebuilds were requested for both releases; VM rebuilds were not requested by this run. "
+            "Run build-vm for each release to produce VM candidates."
         )
     lines.extend(
         [
