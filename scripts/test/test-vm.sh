@@ -12,6 +12,9 @@
 #                            operator-supplied credentials)
 #   BOOT_TIMEOUT_SECONDS     seconds to wait for SSH (default 600; emulation is slow)
 #   TEST_EVIDENCE_DIR        keep the serial log and check results here
+# The check commands below are single-quoted on purpose: they are sent to the image and
+# must expand there, not on the machine running this test.
+# shellcheck disable=SC2016
 set -Eeuo pipefail
 
 image="${1:?image path required}"
@@ -41,7 +44,7 @@ mkdir -p "$evidence_dir"
 serial_log="$evidence_dir/serial.log"
 qemu_pid=""
 cleanup() {
-  [[ -n "$qemu_pid" ]] && kill "$qemu_pid" 2>/dev/null || true
+  if [[ -n "$qemu_pid" ]]; then kill "$qemu_pid" 2>/dev/null || true; fi
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT
