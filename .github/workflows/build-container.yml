@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       RELEASE: ${{ inputs.release || '26.04' }}
+      ARCH: ${{ matrix.arch }}
       IMAGE_NAME: ghcr.io/${{ github.repository }}:${{ inputs.release || '26.04' }}-${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +49,15 @@ jobs:
         env:
           PUBLISH: ${{ inputs.publish == true && '1' || '0' }}
         run: make build-container
+      - name: Verify local container architecture
+        if: inputs.publish != true
+        run: |
+          actual_arch="$(docker image inspect "$IMAGE_NAME" --format '{{.Architecture}}')"
+          if [[ "$actual_arch" != "$ARCH" ]]; then
+            echo "ERROR: $IMAGE_NAME has architecture $actual_arch; expected $ARCH" >&2
+            exit 1
+          fi
+          echo "Verified container architecture: $actual_arch"
       - name: Install scanners
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b "$HOME/.local/bin"
